@@ -46,8 +46,34 @@
   }
 
   /**
+   * Limpia y normaliza el título de una canción para detectar variantes duplicadas
+   * (elimina tags como '(Official Video)', '(Live)', '(From ...)', '(Bonus Track)', '(Radio Edit)', etc.)
+   */
+  function normalizeSongTitle(title) {
+    if (!title) return "";
+    return title
+      .toLowerCase()
+      // Elimina paréntesis o corchetes con etiquetas comunes de video/edición
+      .replace(/\s*[\(\[](?:official\s*(?:video|audio|music\s*video)?|video\s*oficial|audio|video|live|en\s*vivo|from\s+[^)\]]+|bonus\s*track|radio\s*edit|remaster(?:ed)?(?:\s*\d{4})?|deluxe|version\s*[^)\]]*|acoustic|lyric\s*video)[\)\]]/gi, "")
+      // Elimina sufijos tipo " - Live", " - Official Video", etc.
+      .replace(/\s*-\s*(?:official\s*(?:video|audio)?|video\s*oficial|live|en\s*vivo|remaster(?:ed)?(?:\s*\d{4})?).*$/gi, "")
+      .trim();
+  }
+
+  /**
+   * Normaliza el artista principal ignorando acompañamientos secundarios
+   */
+  function normalizeArtist(artist) {
+    if (!artist) return "";
+    return artist
+      .toLowerCase()
+      .split(/•|feat\.|ft\.|con\s|&|,/)[0]
+      .trim();
+  }
+
+  /**
    * Extrae los próximos 10 temas de la pestaña "A continuación" (Queue)
-   * Deduplica temas causados por múltiples contenedores o el virtual scroller de YouTube Music.
+   * Deduplica temas causados por múltiples contenedores, el virtual scroller o variantes (Official Video / Live / Bonus).
    */
   function extractQueue() {
     // Buscar en el contenedor principal de la cola
@@ -76,8 +102,11 @@
       const artist = bylineEl?.textContent?.trim() || "";
       if (!title) continue;
 
-      // Clave única para evitar duplicados
-      const key = `${title.toLowerCase()}:::${artist.toLowerCase()}`;
+      // Normalizar título y artista para comparar canciones base
+      const normTitle = normalizeSongTitle(title);
+      const normArtist = normalizeArtist(artist);
+      const key = `${normTitle}:::${normArtist}`;
+
       if (seen.has(key)) {
         continue;
       }
