@@ -8,6 +8,7 @@
 const WS_URL = "ws://127.0.0.1:7788";
 let socket = null;
 let isConnecting = false;
+let heartbeatTimer = null;
 
 console.log("[Pi-YT Background] Service Worker iniciado.");
 
@@ -30,6 +31,9 @@ function connectWebSocket() {
         client: "Chrome Extension Background (YouTube Music)",
         timestamp: Date.now(),
       });
+
+      // Pedir a las pestañas de YouTube Music que envíen su estado de inmediato
+      requestStateFromTabs();
     };
 
     socket.onmessage = (event) => {
@@ -64,8 +68,32 @@ function sendToPi(data) {
   }
 }
 
-// Iniciar conexión inicial
+// Keep-alive para evitar que Chrome congele el Service Worker tras 30 segundos
+function setupKeepAlive() {
+  if (heartbeatTimer) clearInterval(heartbeatTimer);
+  heartbeatTimer = setInterval(() => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      sendToPi({ type: "HEARTBEAT", timestamp: Date.now() });
+    } else {
+      connectWebSocket();
+    }
+  }, 5000);
+}
+
+// Iniciar conexión y keep-alive
 connectWebSocket();
+setupKeepAlive();
+
+function requestStateFromTabs() {
+  chrome.tabs.query({ url: "https://music.youtube.com/*" }, (tabs) => {
+    if (!tabs || tabs.length === 0) return;
+    for (const tab of tabs) {
+      if (tab.id !== undefined) {
+        chrome.tabs.sendMessage(tab.id, { type: "REQUEST_STATE" }).catch(() => {});
+      }
+    }
+  });
+}
 
 // --- 2. Mensajería con content-script.js (Pestaña de YouTube Music) ---
 

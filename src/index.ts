@@ -1,8 +1,10 @@
+import { YouTubePlayerClient } from "./client.js";
 import { YouTubePlayerService } from "./player-service.js";
-import { DEFAULT_HOST, DEFAULT_PORT, YouTubeWebSocketServer } from "./server.js";
 import { type YouTubePlayerState, YOUTUBE_PLAYER_SYMBOL } from "./types.js";
 
 // Re-exportar contratos para consumidores
+export * from "./client.js";
+export { YouTubeDaemon } from "./daemon.js";
 export * from "./player-service.js";
 export * from "./server.js";
 export * from "./types.js";
@@ -34,9 +36,9 @@ function formatStatusOneLiner(state: YouTubePlayerState): string {
 }
 
 /**
- * Instancia singleton global del servidor WebSocket
+ * Instancia singleton global del cliente WebSocket en este proceso de Pi
  */
-let globalServer: YouTubeWebSocketServer | null = null;
+let globalClient: YouTubePlayerClient | null = null;
 
 /**
  * Entrypoint principal de la extensión para Pi
@@ -44,17 +46,13 @@ let globalServer: YouTubeWebSocketServer | null = null;
 export default function activate(pi: any): void {
   const service = YouTubePlayerService.getInstance();
 
-  // Iniciar el servidor WebSocket de fondo si aún no fue instanciado
-  if (!globalServer) {
-    globalServer = new YouTubeWebSocketServer(DEFAULT_PORT, DEFAULT_HOST);
-    globalServer.start().catch((err) => {
-      if (pi?.ui?.notify) {
-        pi.ui.notify(`[yt-player] Error iniciando socket: ${err.message}`, "error");
-      }
-    });
+  // Cada terminal de Pi se conecta como cliente WebSocket ligero al daemon centralizado
+  if (!globalClient) {
+    globalClient = new YouTubePlayerClient();
+    globalClient.connect();
   }
 
-  // Si Pi soporta registrar comandos slash:
+  // Registrar comando slash /yt con la API nativa de Pi
   if (pi?.registerCommand) {
     pi.registerCommand("yt", {
       description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|status|queue])",
@@ -129,7 +127,7 @@ export default function activate(pi: any): void {
               return reply("📜 La cola de reproducción está vacía.");
             }
 
-            const lines = state.queue.slice(0, 10).map((t, i) => {
+            const lines = state.queue.slice(0, 15).map((t, i) => {
               const dur = t.duration ? ` (${t.duration})` : "";
               return `  ${(i + 1).toString().padStart(2, "0")}. ${t.artist} - ${t.title}${dur}`;
             });
