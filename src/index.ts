@@ -56,15 +56,22 @@ export default function activate(pi: any): void {
 
   // Si Pi soporta registrar comandos slash:
   if (pi?.registerCommand) {
-    pi.registerCommand({
-      name: "yt",
+    pi.registerCommand("yt", {
       description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|status|queue])",
-      execute: async (args: string[]) => {
-        const sub = (args[0] || "").toLowerCase().trim();
+      handler: async (args: string, ctx: any) => {
+        const parts = (args || "").trim().split(/\s+/).filter(Boolean);
+        const sub = (parts[0] || "").toLowerCase();
         const state = service.getState();
 
+        const reply = (msg: string) => {
+          if (ctx?.ui?.notify) {
+            ctx.ui.notify(msg, "info");
+          }
+          return msg;
+        };
+
         if (state.connectedClients === 0 && sub !== "status") {
-          return "⚠️ YouTube Music no está conectado. Abrí music.youtube.com con la extensión cargada en Chrome.";
+          return reply("⚠️ YouTube Music no está conectado. Abrí music.youtube.com con la extensión cargada en Chrome.");
         }
 
         switch (sub) {
@@ -73,35 +80,35 @@ export default function activate(pi: any): void {
           case "pause":
           case "toggle": {
             service.togglePlay();
-            return formatStatusOneLiner(service.getState());
+            return reply(formatStatusOneLiner(service.getState()));
           }
 
           case "next":
           case "skip": {
             service.next();
-            return `⏭ Siguiente tema | ${formatStatusOneLiner(service.getState())}`;
+            return reply(`⏭ Siguiente tema | ${formatStatusOneLiner(service.getState())}`);
           }
 
           case "prev":
           case "back": {
             service.previous();
-            return `⏮ Tema anterior | ${formatStatusOneLiner(service.getState())}`;
+            return reply(`⏮ Tema anterior | ${formatStatusOneLiner(service.getState())}`);
           }
 
           case "status": {
-            return formatStatusOneLiner(state);
+            return reply(formatStatusOneLiner(state));
           }
 
           case "mute": {
             service.toggleMute();
-            return "🔇 Volumen muteado / restaurado";
+            return reply("🔇 Volumen muteado / restaurado");
           }
 
           case "vol":
           case "volume": {
-            const rawVal = args[1];
+            const rawVal = parts[1];
             if (!rawVal) {
-              return `🔊 Volumen actual: ${Math.round(state.volume * 100)}%`;
+              return reply(`🔊 Volumen actual: ${Math.round(state.volume * 100)}%`);
             }
 
             let newVol = Math.round(state.volume * 100);
@@ -114,12 +121,12 @@ export default function activate(pi: any): void {
             }
 
             service.setVolume(newVol);
-            return `🔊 Volumen ajustado a ${Math.max(0, Math.min(100, newVol))}%`;
+            return reply(`🔊 Volumen ajustado a ${Math.max(0, Math.min(100, newVol))}%`);
           }
 
           case "queue": {
             if (!state.queue || state.queue.length === 0) {
-              return "📜 La cola de reproducción está vacía.";
+              return reply("📜 La cola de reproducción está vacía.");
             }
 
             const lines = state.queue.slice(0, 10).map((t, i) => {
@@ -127,7 +134,7 @@ export default function activate(pi: any): void {
               return `  ${(i + 1).toString().padStart(2, "0")}. ${t.artist} - ${t.title}${dur}`;
             });
 
-            return [`📜 Próximos temas en cola:`, ...lines].join("\n");
+            return reply([`📜 Próximos temas en cola:`, ...lines].join("\n"));
           }
 
           default: {
@@ -135,10 +142,10 @@ export default function activate(pi: any): void {
             const targetIndex = parseInt(sub, 10);
             if (!isNaN(targetIndex) && targetIndex > 0) {
               service.playQueueIndex(targetIndex - 1);
-              return `▶ Saltando al tema #${targetIndex} de la cola...`;
+              return reply(`▶ Saltando al tema #${targetIndex} de la cola...`);
             }
 
-            return "Uso: /yt [play | pause | next | prev | vol <0-100> | status | queue | <número>]";
+            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | status | queue | <número>]");
           }
         }
       },
