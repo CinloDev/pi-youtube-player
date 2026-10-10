@@ -3,10 +3,15 @@
   "name": "Pi YouTube Music Bridge",
   "version": "1.0.0",
   "description": "Puente local y seguro entre YouTube Music y el agente Pi",
-  "permissions": [],
+  "permissions": [
+    "tabs"
+  ],
   "host_permissions": [
     "https://music.youtube.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
     {
       "matches": [

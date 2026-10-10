@@ -1,73 +1,16 @@
 // @ts-check
 /**
  * Pi YouTube Music Bridge - Content Script para Chrome
- * Conexión WebSocket ultra-liviana con Pi en ws://127.0.0.1:7788
+ * Extrae metadata y controla el DOM de YouTube Music.
+ * Se comunica con background.js mediante chrome.runtime.
  */
 
 (function () {
-  const WS_URL = "ws://127.0.0.1:7788";
-  let socket = null;
-  let isConnecting = false;
+  console.log("[Pi-YT Content] Bridge inicializado en music.youtube.com");
+
   let pollInterval = null;
 
-  console.log("[Pi-YT] Bridge inicializado en music.youtube.com");
-
-  // --- 1. WebSocket y Reconexión Silenciosa ---
-
-  function connect() {
-    if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-      return;
-    }
-
-    isConnecting = true;
-    try {
-      socket = new WebSocket(WS_URL);
-
-      socket.onopen = () => {
-        isConnecting = false;
-        console.log("[Pi-YT] Conectado exitosamente con Pi en", WS_URL);
-        send({
-          type: "CLIENT_CONNECTED",
-          client: "Chrome Extension (YouTube Music)",
-          timestamp: Date.now(),
-        });
-        sendFullState();
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const packet = JSON.parse(event.data);
-          handleIncomingCommand(packet);
-        } catch (e) {
-          // Ignorar mensajes malformados
-        }
-      };
-
-      socket.onclose = () => {
-        socket = null;
-        isConnecting = false;
-        // Reintentar silenciosamente cada 3 segundos
-        setTimeout(connect, 3000);
-      };
-
-      socket.onerror = () => {
-        if (socket) {
-          socket.close();
-        }
-      };
-    } catch {
-      isConnecting = false;
-      setTimeout(connect, 3000);
-    }
-  }
-
-  function send(data) {
-    if (socket && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(data));
-    }
-  }
-
-  // --- 2. Lectura y Extracción del DOM de YouTube Music ---
+  // --- 1. Lectura y Extracción del DOM de YouTube Music ---
 
   function getVideoElement() {
     return document.querySelector("video");
@@ -133,16 +76,17 @@
 
   function sendFullState() {
     const state = extractMetadata();
-    if (state) {
-      send({
+    if (state && typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
+      chrome.runtime.sendMessage({
         type: "PLAYER_STATE",
         data: state,
-        timestamp: Date.now(),
+      }).catch(() => {
+        // Ignorar si background se está reconectando
       });
     }
   }
 
-  // --- 3. Ejecución de Comandos desde Pi ---
+  // --- 2. Ejecución de Comandos Recibidos de background.js ---
 
   function handleIncomingCommand(packet) {
     if (!packet || packet.type !== "COMMAND") return;
@@ -190,7 +134,6 @@
 
       case "SET_VOLUME":
         if (video && typeof packet.payload?.value === "number") {
-          // valor de 0 a 100 convertido a 0.0 - 1.0
           const vol = Math.max(0, Math.min(1, packet.payload.value / 100));
           video.volume = vol;
           sendFullState();
@@ -219,16 +162,23 @@
     setTimeout(sendFullState, 250);
   }
 
-  // --- 4. Loop de Ticks cada 1 segundo (Q6 - Opción A) ---
+  // Escuchar comandos enviados desde background.js
+  if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener((packet) => {
+      handleIncomingCommand(packet);
+    });
+  }
 
-  connect();
+  // --- 3. Loop de Ticks cada 1 segundo para telemetría viva ---
+
+  sendFullState();
 
   if (pollInterval) clearInterval(pollInterval);
   pollInterval = setInterval(() => {
     sendFullState();
   }, 1000);
 
-  // Escuchar también eventos nativos del elemento video si se carga dinámicamente
+  // Escuchar eventos nativos del elemento <video>
   document.addEventListener(
     "play",
     (e) => {
