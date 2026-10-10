@@ -69,7 +69,20 @@
    ```
 5. Abrí `https://music.youtube.com/`, poné play a cualquier canción o playlist y abrí el panel "A continuación".
 
-### 2. Habilitar la Extensión en Pi
+### 2. Iniciar el Daemon de Fondo (Systemd Service)
+Para que todas las terminales de Pi compartan la música en simultáneo sin bloquear puertos:
+```bash
+# Compilar el proyecto
+pnpm run build
+
+# Iniciar el daemon como servicio de usuario
+mkdir -p ~/.config/systemd/user
+cp pi-youtube-daemon.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now pi-youtube-daemon
+```
+
+### 3. Habilitar la Extensión en Pi
 Creá o agregá el loader en tu directorio de extensiones de Pi (`~/.pi/agent/extensions/pi-youtube-player.ts`):
 ```typescript
 import activate from '<ruta-al-proyecto>/dist/index.js';

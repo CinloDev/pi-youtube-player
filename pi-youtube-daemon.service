@@ -1,0 +1,15 @@
+[Unit]
+Description=Pi YouTube Music Background Daemon
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Projects/experiments/pi-youtube-player
+ExecStart=node dist/daemon.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
