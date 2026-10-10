@@ -1,0 +1,29 @@
+{
+  "name": "pi-youtube-player",
+  "version": "1.0.0",
+  "description": "Ultra-lightweight YouTube Music player extension for Pi agent harness",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "pi",
+    "pi-extension",
+    "youtube-music",
+    "tui",
+    "audio"
+  ],
+  "author": "CinloDev",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.19",
+    "@types/ws": "^8.5.14",
+    "typescript": "^5.7.3"
+  }
+}

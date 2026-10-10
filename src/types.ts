@@ -1,0 +1,101 @@
+/**
+ * Estados de reproducción posibles del reproductor de YouTube Music
+ */
+export type PlayerPlaybackStatus = "playing" | "paused" | "stopped" | "idle" | "disconnected";
+
+/**
+ * Representa un tema en la cola de reproducción (Up Next)
+ */
+export interface QueueTrack {
+  index: number;
+  title: string;
+  artist: string;
+  duration?: string; // Formato "03:45"
+  thumbnailUrl?: string;
+}
+
+/**
+ * Estado completo del reproductor de YouTube Music
+ */
+export interface YouTubePlayerState {
+  status: PlayerPlaybackStatus;
+  title: string;
+  artist: string;
+  album?: string;
+  currentTime: number; // Segundos actuales
+  duration: number; // Duración total en segundos
+  volume: number; // 0.0 a 1.0 (o 0 a 100 según porcentaje)
+  isLiked?: boolean;
+  thumbnailUrl?: string;
+  queue: QueueTrack[];
+  connectedClients: number;
+  lastUpdated: number;
+}
+
+/**
+ * Acciones soportadas por el protocolo de comandos
+ */
+export type PlayerCommandAction =
+  | "PLAY"
+  | "PAUSE"
+  | "PLAY_PAUSE"
+  | "NEXT"
+  | "PREV"
+  | "SET_VOLUME"
+  | "MUTE"
+  | "SEEK"
+  | "PLAY_INDEX";
+
+/**
+ * Paquete de comando enviado de Pi hacia el navegador
+ */
+export interface PlayerCommandPacket {
+  type: "COMMAND";
+  action: PlayerCommandAction;
+  payload?: {
+    value?: number; // Para volumen (0-100) o seek (segundos)
+    index?: number; // Para PLAY_INDEX en la cola
+  };
+  timestamp: number;
+}
+
+/**
+ * Paquetes enviados desde el navegador hacia Pi
+ */
+export type UpstreamPacket =
+  | {
+      type: "CLIENT_CONNECTED";
+      client: string;
+      timestamp: number;
+    }
+  | {
+      type: "PLAYER_STATE";
+      data: Partial<YouTubePlayerState>;
+      timestamp: number;
+    }
+  | {
+      type: "HEARTBEAT";
+      timestamp: number;
+    };
+
+/**
+ * Símbolo global canónico para la interoperabilidad con temas y la sidebar de Pi
+ */
+export const YOUTUBE_PLAYER_SYMBOL = Symbol.for("pi-youtube-player");
+
+/**
+ * Contrato de la API pública expuesta en globalThis
+ */
+export interface IYouTubePlayerService {
+  getState(): YouTubePlayerState;
+  on(event: "stateChange", listener: (state: YouTubePlayerState) => void): () => void;
+  play(): void;
+  pause(): void;
+  togglePlay(): void;
+  next(): void;
+  previous(): void;
+  setVolume(volume: number): void;
+  toggleMute(): void;
+  playQueueIndex(index: number): void;
+  isConnected(): boolean;
+}
