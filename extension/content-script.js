@@ -33,12 +33,31 @@
 
     const isPlaying = !video.paused && !video.ended && video.readyState > 2;
 
+    // Reloj por canción leyendo el elemento visual .time-info (evita el stream acumulado del tag <video>)
+    const timeInfoEl = document.querySelector(".time-info.ytmusic-player-bar, #time-info");
+    let currentTime = Math.floor(video.currentTime || 0);
+    let duration = Math.floor(video.duration || 0);
+
+    if (timeInfoEl && timeInfoEl.textContent) {
+      const parts = timeInfoEl.textContent.split("/").map((s) => s.trim());
+      if (parts.length === 2) {
+        const parseClock = (str) => {
+          const p = str.split(":").map(Number);
+          if (p.length === 2) return p[0] * 60 + p[1];
+          if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+          return 0;
+        };
+        currentTime = parseClock(parts[0]);
+        duration = parseClock(parts[1]);
+      }
+    }
+
     return {
       status: isPlaying ? "playing" : "paused",
       title,
       artist,
-      currentTime: Math.floor(video.currentTime || 0),
-      duration: Math.floor(video.duration || 0),
+      currentTime,
+      duration,
       volume: video.volume ?? 1.0,
       thumbnailUrl,
       queue: extractQueue(),
@@ -202,10 +221,13 @@
 
       case "PLAY_INDEX":
         if (typeof packet.payload?.index === "number") {
-          const items = Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
+          const container = document.querySelector("#queue ytmusic-player-queue, #items.ytmusic-player-queue") || document;
+          const items = Array.from(container.querySelectorAll("ytmusic-player-queue-item")).filter((el) => el.offsetParent !== null);
           const target = items[packet.payload.index];
           if (target) {
-            target.click();
+            const playBtn = target.querySelector(".play-button, ytmusic-play-button-renderer, .song-title, .title") || target;
+            playBtn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+            if (typeof playBtn.click === "function") playBtn.click();
           }
         }
         break;
