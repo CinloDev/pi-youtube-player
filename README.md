@@ -63,16 +63,16 @@
 1. Abrí Google Chrome y navegá a `chrome://extensions/`.
 2. Activá el interruptor **"Modo de desarrollador"** (arriba a la derecha).
 3. Hacé clic en **"Cargar descomprimida" (Load unpacked)**.
-4. Seleccioná la carpeta `extension/` de este repositorio:
+4. Seleccioná la carpeta `extension/` clonada en tu máquina local:
    ```bash
-   /home/cinlodev/Projects/experiments/pi-youtube-player/extension
+   path/to/pi-youtube-player/extension
    ```
 5. Abrí `https://music.youtube.com/`, poné play a cualquier canción o playlist y abrí el panel "A continuación".
 
 ### 2. Habilitar la Extensión en Pi
 Creá o agregá el loader en tu directorio de extensiones de Pi (`~/.pi/agent/extensions/pi-youtube-player.ts`):
 ```typescript
-import activate from '/home/cinlodev/Projects/experiments/pi-youtube-player/dist/index.js';
+import activate from '<ruta-al-proyecto>/dist/index.js';
 export default activate;
 ```
 
