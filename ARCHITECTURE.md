@@ -15,18 +15,25 @@ El ecosistema se divide en tres capas desacopladas:
    - Lee los metadatos visuales del DOM (título del tema, artista, portada).
    - Se conecta como cliente WebSocket a `ws://127.0.0.1:7788`.
 
-2. **Extension Core (Servidor en Pi):**
-   - Corre dentro del runtime de Node.js de la sesión de Pi.
-   - Levanta un servidor `ws.Server` escuchando exclusivamente en `127.0.0.1:7788`.
-   - Mantiene en memoria el estado reactivo del reproductor (`YouTubePlayerState`).
+2. **Background Daemon (Servidor Central en el Sistema):**
+   - Corre como un proceso en segundo plano de Node.js administrado por `systemd --user` (`pi-youtube-daemon.service`).
+   - Levanta el servidor `ws.Server` escuchando exclusivamente en `127.0.0.1:7788`.
+   - Mantiene en memoria el último estado reactivo (`YouTubePlayerState`).
+   - Permite la conexión concurrente de **múltiples terminales de Pi** simultáneas, retransmitiendo el estado a todas ellas.
+
+3. **Extension Client (Extensión en cada Terminal de Pi):**
+   - Corre dentro de cada sesión activa de Pi (`pi-coding-agent`).
+   - Se conecta como cliente WebSocket ligero a `ws://127.0.0.1:7788`.
    - Provee comandos slash para la consola de Pi:
      - `/yt` o `/yt play`: Alterna play/pause.
      - `/yt next`: Salta al siguiente tema.
      - `/yt prev`: Vuelve al tema anterior.
+     - `/yt vol <0-100>`: Ajusta el volumen.
+     - `/yt queue`: Lista los próximos 15 temas de la cola.
      - `/yt status`: Muestra la canción sonando.
    - Registra la API pública en `globalThis[Symbol.for('pi-youtube-player')]`.
 
-3. **TUI Consumer (Consumidor en la Sidebar / Tema):**
+4. **TUI Consumer (Consumidor en la Sidebar / Tema):**
    - Opcional y completamente desacoplado (por ejemplo, una tarjeta en `pi-cinlodev-cute`).
    - Consulta el estado desde el `Symbol` global.
    - Dibuja la tarjeta en la sidebar con los botones `[ ▶ Play ]`, `[ ❚❚ Pausa ]`, `[ ⏭ ]`, `[ ⏮ ]`.
