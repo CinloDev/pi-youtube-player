@@ -47,28 +47,52 @@
 
   /**
    * Extrae los próximos 10 temas de la pestaña "A continuación" (Queue)
+   * Deduplica temas causados por múltiples contenedores o el virtual scroller de YouTube Music.
    */
   function extractQueue() {
-    const queueItems = Array.from(document.querySelectorAll("ytmusic-player-queue-item"));
+    // Buscar en el contenedor principal de la cola
+    const container = document.querySelector("#queue ytmusic-player-queue, #items.ytmusic-player-queue") || document;
+    const queueItems = Array.from(container.querySelectorAll("ytmusic-player-queue-item"));
     if (!queueItems || queueItems.length === 0) {
       return [];
     }
 
     const tracks = [];
-    const maxItems = Math.min(queueItems.length, 10);
+    const seen = new Set();
 
-    for (let i = 0; i < maxItems; i++) {
+    for (let i = 0; i < queueItems.length; i++) {
       const item = queueItems[i];
+
+      // Omitir elementos invisibles si el virtual scroller los oculta
+      if (item.offsetParent === null && item.style.display === "none") {
+        continue;
+      }
+
       const titleEl = item.querySelector(".song-title");
       const bylineEl = item.querySelector(".byline");
       const durationEl = item.querySelector(".duration");
 
+      const title = titleEl?.textContent?.trim() || "";
+      const artist = bylineEl?.textContent?.trim() || "";
+      if (!title) continue;
+
+      // Clave única para evitar duplicados
+      const key = `${title.toLowerCase()}:::${artist.toLowerCase()}`;
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+
       tracks.push({
         index: i,
-        title: titleEl?.textContent?.trim() || `Tema ${i + 1}`,
-        artist: bylineEl?.textContent?.trim() || "",
+        title,
+        artist,
         duration: durationEl?.textContent?.trim() || "",
       });
+
+      if (tracks.length >= 10) {
+        break;
+      }
     }
 
     return tracks;
