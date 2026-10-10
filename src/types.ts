@@ -12,6 +12,7 @@ export interface QueueTrack {
   artist: string;
   duration?: string; // Formato "03:45"
   thumbnailUrl?: string;
+  isCurrent?: boolean; // Si es el tema en reproducción activa
 }
 
 /**

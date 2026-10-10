@@ -92,7 +92,7 @@
 
   /**
    * Extrae los próximos 10 temas de la pestaña "A continuación" (Queue)
-   * Deduplica temas causados por múltiples contenedores, el virtual scroller o variantes (Official Video / Live / Bonus).
+   * Deduplica temas y descarta los que ya pasaron, tomando siempre a partir del tema activo.
    */
   function extractQueue() {
     // Buscar en el contenedor principal de la cola
@@ -102,10 +102,34 @@
       return [];
     }
 
+    // 1. Detectar el índice de la canción que está sonando actualmente en la lista
+    // En YouTube Music, el tema activo tiene el atributo 'selected', la clase 'selected' o 'play-button-state="playing"'
+    let activeIndex = queueItems.findIndex((item) => {
+      return (
+        item.hasAttribute("selected") ||
+        item.classList.contains("selected") ||
+        item.querySelector("[play-button-state='playing'], [play-button-state='paused']") !== null
+      );
+    });
+
+    // Si no encuentra el elemento marcado, buscar por título actual
+    if (activeIndex === -1) {
+      const currentTitle = document.querySelector(".title.ytmusic-player-bar")?.textContent?.trim()?.toLowerCase();
+      if (currentTitle) {
+        activeIndex = queueItems.findIndex((item) => {
+          const t = item.querySelector(".song-title")?.textContent?.trim()?.toLowerCase();
+          return t && (t === currentTitle || normalizeSongTitle(t) === normalizeSongTitle(currentTitle));
+        });
+      }
+    }
+
+    // Empezar a listar desde el tema actual (para resaltarlo) o desde los siguientes
+    const startIndex = activeIndex >= 0 ? activeIndex : 0;
+
     const tracks = [];
     const seen = new Set();
 
-    for (let i = 0; i < queueItems.length; i++) {
+    for (let i = startIndex; i < queueItems.length; i++) {
       const item = queueItems[i];
 
       // Omitir elementos invisibles si el virtual scroller los oculta
@@ -131,11 +155,14 @@
       }
       seen.add(key);
 
+      const isCurrent = i === activeIndex;
+
       tracks.push({
         index: i,
         title,
         artist,
         duration: durationEl?.textContent?.trim() || "",
+        isCurrent,
       });
 
       if (tracks.length >= 10) {
