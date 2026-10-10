@@ -102,28 +102,36 @@
       return [];
     }
 
-    // 1. Detectar el índice de la canción que está sonando actualmente en la lista
-    // En YouTube Music, el tema activo tiene el atributo 'selected', la clase 'selected' o 'play-button-state="playing"'
+    // 1. Título y artista de la canción que está sonando actualmente en la barra inferior
+    const barTitle = document.querySelector(".title.ytmusic-player-bar")?.textContent?.trim() || "";
+    const barArtist = document.querySelector(".byline.ytmusic-player-bar")?.textContent?.trim() || "";
+    const normBarTitle = normalizeSongTitle(barTitle);
+    const normBarArtist = normalizeArtist(barArtist);
+
+    // 2. Detectar cuál es el elemento de la cola que corresponde a la canción actual
+    // Prioridad 1: Coincidencia exacta o normalizada de título + artista con la barra
     let activeIndex = queueItems.findIndex((item) => {
+      const t = item.querySelector(".song-title")?.textContent?.trim() || "";
+      const a = item.querySelector(".byline")?.textContent?.trim() || "";
+      if (!t) return false;
       return (
-        item.hasAttribute("selected") ||
-        item.classList.contains("selected") ||
-        item.querySelector("[play-button-state='playing'], [play-button-state='paused']") !== null
+        normalizeSongTitle(t) === normBarTitle &&
+        (!normBarArtist || normalizeArtist(a).includes(normBarArtist) || normBarArtist.includes(normalizeArtist(a)))
       );
     });
 
-    // Si no encuentra el elemento marcado, buscar por título actual
+    // Prioridad 2: Atributos nativos del DOM de YouTube Music (selected o estado playing/paused)
     if (activeIndex === -1) {
-      const currentTitle = document.querySelector(".title.ytmusic-player-bar")?.textContent?.trim()?.toLowerCase();
-      if (currentTitle) {
-        activeIndex = queueItems.findIndex((item) => {
-          const t = item.querySelector(".song-title")?.textContent?.trim()?.toLowerCase();
-          return t && (t === currentTitle || normalizeSongTitle(t) === normalizeSongTitle(currentTitle));
-        });
-      }
+      activeIndex = queueItems.findIndex((item) => {
+        return (
+          item.hasAttribute("selected") ||
+          item.classList.contains("selected") ||
+          item.querySelector("[play-button-state='playing'], [play-button-state='paused']") !== null
+        );
+      });
     }
 
-    // Empezar a listar desde el tema actual (para resaltarlo) o desde los siguientes
+    // 3. Empezar la lista SIEMPRE desde la canción activa para adelante (ventana deslizante real)
     const startIndex = activeIndex >= 0 ? activeIndex : 0;
 
     const tracks = [];
