@@ -91,7 +91,7 @@
   }
 
   /**
-   * Extrae los próximos 10 temas de la pestaña "A continuación" (Queue)
+   * Extrae los próximos 15 temas de la pestaña "A continuación" (Queue)
    * Deduplica temas y descarta los que ya pasaron, tomando siempre a partir del tema activo.
    */
   function extractQueue() {
@@ -173,7 +173,7 @@
         isCurrent,
       });
 
-      if (tracks.length >= 10) {
+      if (tracks.length >= 15) {
         break;
       }
     }
@@ -275,6 +275,10 @@
   // Escuchar comandos enviados desde background.js
   if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
     chrome.runtime.onMessage.addListener((packet) => {
+      if (packet?.type === "REQUEST_STATE") {
+        sendFullState();
+        return;
+      }
       handleIncomingCommand(packet);
     });
   }
