@@ -1,4 +1,5 @@
 import { WebSocket, WebSocketServer } from "ws";
+import { CoverArtManager } from "./cover-art.js";
 import type { PlayerCommandPacket, UpstreamPacket, YouTubePlayerState } from "./types.js";
 
 export const DEFAULT_PORT = 7788;
@@ -26,6 +27,7 @@ export class YouTubeDaemon {
   private sockets: Set<WebSocket> = new Set();
   private lastState: YouTubePlayerState = { ...INITIAL_STATE };
   private browserSocket: WebSocket | null = null;
+  private coverArtManager = new CoverArtManager();
 
   constructor(port = DEFAULT_PORT, host = DEFAULT_HOST) {
     this.port = port;
@@ -96,17 +98,40 @@ export class YouTubeDaemon {
         } else if (packet.type === "PLAYER_STATE") {
           // Actualización de estado (proviene de Chrome)
           this.browserSocket = socket;
+          const previousThumbUrl = this.lastState.thumbnailUrl;
           this.lastState = {
             ...this.lastState,
             ...packet.data,
             connectedClients: 1,
             lastUpdated: Date.now(),
           };
+
+          // Si vino una portada y cambió, gestionar descarga asíncrona centralizada
+          if (packet.data?.thumbnailUrl && packet.data.thumbnailUrl !== previousThumbUrl) {
+            this.coverArtManager
+              .getCoverArt(packet.data.thumbnailUrl)
+              .then((cover) => {
+                if (cover) {
+                  this.lastState.thumbnailPath = cover.path;
+                  this.lastState.thumbnailBase64 = cover.base64;
+                  this.broadcast({
+                    type: "PLAYER_STATE",
+                    data: {
+                      ...this.lastState,
+                      connectedClients: 1,
+                    },
+                    timestamp: Date.now(),
+                  });
+                }
+              })
+              .catch(() => {});
+          }
+
           // Reenviar a todas las terminales de Pi
           this.broadcast({
             ...packet,
             data: {
-              ...packet.data,
+              ...this.lastState,
               connectedClients: 1,
             },
           });

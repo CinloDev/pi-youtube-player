@@ -4,6 +4,7 @@ import { type YouTubePlayerState, YOUTUBE_PLAYER_SYMBOL } from "./types.js";
 
 // Re-exportar contratos para consumidores
 export * from "./client.js";
+export * from "./cover-art.js";
 export { YouTubeDaemon } from "./daemon.js";
 export * from "./player-service.js";
 export * from "./server.js";
