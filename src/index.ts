@@ -56,7 +56,7 @@ export default function activate(pi: any): void {
   // Registrar comando slash /yt con la API nativa de Pi
   if (pi?.registerCommand) {
     pi.registerCommand("yt", {
-      description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|status|queue])",
+      description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|status|queue|clear|remove|search|likes])",
       handler: async (args: string, ctx: any) => {
         const parts = (args || "").trim().split(/\s+/).filter(Boolean);
         const sub = (parts[0] || "").toLowerCase();
@@ -103,6 +103,36 @@ export default function activate(pi: any): void {
             return reply("🔇 Volumen muteado / restaurado");
           }
 
+          case "clear": {
+            service.clearQueue();
+            return reply("🧹 Vaciando la cola de reproducción en YouTube Music...");
+          }
+
+          case "remove":
+          case "del": {
+            const rawIdx = parseInt(parts[1], 10);
+            if (isNaN(rawIdx) || rawIdx < 1) {
+              return reply("Uso: /yt remove <número de tema en cola>");
+            }
+            service.removeQueueIndex(rawIdx - 1);
+            return reply(`🗑 Eliminando tema #${rawIdx} de la cola...`);
+          }
+
+          case "search": {
+            const query = parts.slice(1).join(" ").trim();
+            if (!query) {
+              return reply("Uso: /yt search <canción o artista>");
+            }
+            service.search(query);
+            return reply(`🔍 Buscando y reproduciendo en YouTube Music: "${query}"...`);
+          }
+
+          case "likes":
+          case "favorites": {
+            service.playLikes();
+            return reply("♡ Cargando tus canciones que te gustan...");
+          }
+
           case "vol":
           case "volume": {
             const rawVal = parts[1];
@@ -144,7 +174,7 @@ export default function activate(pi: any): void {
               return reply(`▶ Saltando al tema #${targetIndex} de la cola...`);
             }
 
-            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | status | queue | <número>]");
+            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | queue | clear | remove <#n> | search <query> | likes]");
           }
         }
       },

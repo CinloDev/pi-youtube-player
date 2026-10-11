@@ -116,7 +116,10 @@ export class YouTubePlayerService implements IYouTubePlayerService {
 
   // --- API de Comandos ---
 
-  public dispatchCommand(action: PlayerCommandAction, payload?: { value?: number; index?: number }): void {
+  public dispatchCommand(
+    action: PlayerCommandAction,
+    payload?: { value?: number; index?: number; query?: string }
+  ): void {
     if (!this.sendCommandCallback) {
       return;
     }
@@ -163,5 +166,22 @@ export class YouTubePlayerService implements IYouTubePlayerService {
 
   public playQueueIndex(index: number): void {
     this.dispatchCommand("PLAY_INDEX", { index });
+  }
+
+  public clearQueue(): void {
+    this.dispatchCommand("CLEAR_QUEUE");
+  }
+
+  public removeQueueIndex(index: number): void {
+    this.dispatchCommand("REMOVE_INDEX", { index });
+  }
+
+  public search(query: string): void {
+    if (!query || !query.trim()) return;
+    this.dispatchCommand("SEARCH", { query: query.trim() });
+  }
+
+  public playLikes(): void {
+    this.dispatchCommand("PLAY_LIKES");
   }
 }
