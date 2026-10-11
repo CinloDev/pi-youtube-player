@@ -12,6 +12,21 @@
 
   // --- 1. Lectura y Extracción del DOM de YouTube Music ---
 
+  /**
+   * Obtiene la versión en alta resolución de una portada de Google / YouTube Music
+   * Reemplaza parámetros como =w60-h60 o =s60 por =w544-h544 para máxima nitidez visual.
+   */
+  function getHighResThumbnailUrl(rawUrl) {
+    if (!rawUrl) return "";
+    let clean = rawUrl;
+    if (/=w\d+-h\d+/i.test(clean)) {
+      clean = clean.replace(/=w\d+-h\d+/gi, "=w544-h544");
+    } else if (/=s\d+/i.test(clean)) {
+      clean = clean.replace(/=s\d+/gi, "=s544");
+    }
+    return clean;
+  }
+
   function getVideoElement() {
     return document.querySelector("video");
   }
@@ -29,7 +44,8 @@
 
     const title = titleEl?.textContent?.trim() || "Desconocido";
     const artist = bylineEl?.textContent?.trim() || "YouTube Music";
-    const thumbnailUrl = thumbEl?.getAttribute("src") || "";
+    const rawThumb = thumbEl?.getAttribute("src") || "";
+    const thumbnailUrl = getHighResThumbnailUrl(rawThumb);
 
     const isPlaying = !video.paused && !video.ended && video.readyState > 2;
 

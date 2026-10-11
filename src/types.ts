@@ -28,6 +28,8 @@ export interface YouTubePlayerState {
   volume: number; // 0.0 a 1.0 (o 0 a 100 según porcentaje)
   isLiked?: boolean;
   thumbnailUrl?: string;
+  thumbnailPath?: string; // Ruta local al archivo de portada en disco (/tmp) para renderizado en TUI/Kitty
+  thumbnailBase64?: string; // Portada en base64 para renderizado inmediato en TUI sin I/O continuo
   queue: QueueTrack[];
   connectedClients: number;
   lastUpdated: number;

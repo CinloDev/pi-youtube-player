@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { CoverArtManager } from "./cover-art.js";
 import {
   type IYouTubePlayerService,
   type PlayerCommandAction,
@@ -30,6 +31,7 @@ export class YouTubePlayerService implements IYouTubePlayerService {
   private state: YouTubePlayerState = { ...INITIAL_STATE };
   private emitter = new EventEmitter();
   private sendCommandCallback: ((packet: PlayerCommandPacket) => void) | null = null;
+  private coverArtManager = new CoverArtManager();
 
   private constructor() {
     this.emitter.setMaxListeners(50);
@@ -70,12 +72,30 @@ export class YouTubePlayerService implements IYouTubePlayerService {
    * Actualiza el estado reactivo proveniente del navegador y notifica a los oyentes (ej. sidebar)
    */
   public updateState(partialState: Partial<YouTubePlayerState>): void {
+    const previousThumbUrl = this.state.thumbnailUrl;
+
     this.state = {
       ...this.state,
       ...partialState,
       lastUpdated: Date.now(),
     };
     this.emitter.emit("stateChange", this.getState());
+
+    // Si cambió o se recibió una URL de portada válida, gestionar descarga asíncrona en segundo plano
+    if (partialState.thumbnailUrl && partialState.thumbnailUrl !== previousThumbUrl) {
+      this.coverArtManager
+        .getCoverArt(partialState.thumbnailUrl)
+        .then((cover) => {
+          if (cover && this.state.thumbnailUrl === partialState.thumbnailUrl) {
+            this.state.thumbnailPath = cover.path;
+            this.state.thumbnailBase64 = cover.base64;
+            this.emitter.emit("stateChange", this.getState());
+          }
+        })
+        .catch(() => {
+          // Ignorar fallas de red no críticas
+        });
+    }
   }
 
   /**
