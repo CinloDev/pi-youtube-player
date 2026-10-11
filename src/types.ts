@@ -28,6 +28,8 @@ export interface YouTubePlayerState {
   volume: number; // 0.0 a 1.0 (o 0 a 100 según porcentaje)
   isLiked?: boolean;
   thumbnailUrl?: string;
+  thumbnailPath?: string; // Ruta local al archivo de portada en disco (/tmp) para renderizado en TUI/Kitty
+  thumbnailBase64?: string; // Portada en base64 para renderizado inmediato en TUI sin I/O continuo
   queue: QueueTrack[];
   connectedClients: number;
   lastUpdated: number;
@@ -45,7 +47,11 @@ export type PlayerCommandAction =
   | "SET_VOLUME"
   | "MUTE"
   | "SEEK"
-  | "PLAY_INDEX";
+  | "PLAY_INDEX"
+  | "CLEAR_QUEUE"
+  | "REMOVE_INDEX"
+  | "SEARCH"
+  | "PLAY_LIKES";
 
 /**
  * Paquete de comando enviado de Pi hacia el navegador
@@ -55,7 +61,8 @@ export interface PlayerCommandPacket {
   action: PlayerCommandAction;
   payload?: {
     value?: number; // Para volumen (0-100) o seek (segundos)
-    index?: number; // Para PLAY_INDEX en la cola
+    index?: number; // Para PLAY_INDEX o REMOVE_INDEX en la cola
+    query?: string; // Para SEARCH
   };
   timestamp: number;
 }
@@ -98,5 +105,9 @@ export interface IYouTubePlayerService {
   setVolume(volume: number): void;
   toggleMute(): void;
   playQueueIndex(index: number): void;
+  clearQueue(): void;
+  removeQueueIndex(index: number): void;
+  search(query: string): void;
+  playLikes(): void;
   isConnected(): boolean;
 }

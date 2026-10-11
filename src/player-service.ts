@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import { CoverArtManager } from "./cover-art.js";
 import {
   type IYouTubePlayerService,
   type PlayerCommandAction,
@@ -30,6 +31,7 @@ export class YouTubePlayerService implements IYouTubePlayerService {
   private state: YouTubePlayerState = { ...INITIAL_STATE };
   private emitter = new EventEmitter();
   private sendCommandCallback: ((packet: PlayerCommandPacket) => void) | null = null;
+  private coverArtManager = new CoverArtManager();
 
   private constructor() {
     this.emitter.setMaxListeners(50);
@@ -70,12 +72,30 @@ export class YouTubePlayerService implements IYouTubePlayerService {
    * Actualiza el estado reactivo proveniente del navegador y notifica a los oyentes (ej. sidebar)
    */
   public updateState(partialState: Partial<YouTubePlayerState>): void {
+    const previousThumbUrl = this.state.thumbnailUrl;
+
     this.state = {
       ...this.state,
       ...partialState,
       lastUpdated: Date.now(),
     };
     this.emitter.emit("stateChange", this.getState());
+
+    // Si cambió o se recibió una URL de portada válida, gestionar descarga asíncrona en segundo plano
+    if (partialState.thumbnailUrl && partialState.thumbnailUrl !== previousThumbUrl) {
+      this.coverArtManager
+        .getCoverArt(partialState.thumbnailUrl)
+        .then((cover) => {
+          if (cover && this.state.thumbnailUrl === partialState.thumbnailUrl) {
+            this.state.thumbnailPath = cover.path;
+            this.state.thumbnailBase64 = cover.base64;
+            this.emitter.emit("stateChange", this.getState());
+          }
+        })
+        .catch(() => {
+          // Ignorar fallas de red no críticas
+        });
+    }
   }
 
   /**
@@ -96,7 +116,10 @@ export class YouTubePlayerService implements IYouTubePlayerService {
 
   // --- API de Comandos ---
 
-  public dispatchCommand(action: PlayerCommandAction, payload?: { value?: number; index?: number }): void {
+  public dispatchCommand(
+    action: PlayerCommandAction,
+    payload?: { value?: number; index?: number; query?: string }
+  ): void {
     if (!this.sendCommandCallback) {
       return;
     }
@@ -143,5 +166,22 @@ export class YouTubePlayerService implements IYouTubePlayerService {
 
   public playQueueIndex(index: number): void {
     this.dispatchCommand("PLAY_INDEX", { index });
+  }
+
+  public clearQueue(): void {
+    this.dispatchCommand("CLEAR_QUEUE");
+  }
+
+  public removeQueueIndex(index: number): void {
+    this.dispatchCommand("REMOVE_INDEX", { index });
+  }
+
+  public search(query: string): void {
+    if (!query || !query.trim()) return;
+    this.dispatchCommand("SEARCH", { query: query.trim() });
+  }
+
+  public playLikes(): void {
+    this.dispatchCommand("PLAY_LIKES");
   }
 }

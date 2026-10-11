@@ -12,6 +12,21 @@
 
   // --- 1. Lectura y Extracción del DOM de YouTube Music ---
 
+  /**
+   * Obtiene la versión en alta resolución de una portada de Google / YouTube Music
+   * Reemplaza parámetros como =w60-h60 o =s60 por =w544-h544 para máxima nitidez visual.
+   */
+  function getHighResThumbnailUrl(rawUrl) {
+    if (!rawUrl) return "";
+    let clean = rawUrl;
+    if (/=w\d+-h\d+/i.test(clean)) {
+      clean = clean.replace(/=w\d+-h\d+/gi, "=w544-h544");
+    } else if (/=s\d+/i.test(clean)) {
+      clean = clean.replace(/=s\d+/gi, "=s544");
+    }
+    return clean;
+  }
+
   function getVideoElement() {
     return document.querySelector("video");
   }
@@ -29,7 +44,8 @@
 
     const title = titleEl?.textContent?.trim() || "Desconocido";
     const artist = bylineEl?.textContent?.trim() || "YouTube Music";
-    const thumbnailUrl = thumbEl?.getAttribute("src") || "";
+    const rawThumb = thumbEl?.getAttribute("src") || "";
+    const thumbnailUrl = getHighResThumbnailUrl(rawThumb);
 
     const isPlaying = !video.paused && !video.ended && video.readyState > 2;
 
@@ -266,6 +282,58 @@
           }
         }
         break;
+
+      case "CLEAR_QUEUE": {
+        const clearBtn = document.querySelector(
+          "#clear-queue-button, button.clear-queue-button, [aria-label*='Clear queue' i], [aria-label*='Borrar cola' i], [aria-label*='Limpiar cola' i], #clear-button"
+        );
+        if (clearBtn) {
+          clearBtn.click();
+        } else if (video) {
+          video.pause();
+        }
+        break;
+      }
+
+      case "REMOVE_INDEX": {
+        if (typeof packet.payload?.index === "number") {
+          const container = document.querySelector("#queue ytmusic-player-queue, #items.ytmusic-player-queue") || document;
+          const items = Array.from(container.querySelectorAll("ytmusic-player-queue-item")).filter((el) => el.offsetParent !== null);
+          const target = items[packet.payload.index];
+          if (target) {
+            const menuBtn = target.querySelector("ytmusic-menu-renderer, #menu, button[aria-label*='Action' i], button[aria-label*='Acciones' i]");
+            if (menuBtn) {
+              menuBtn.click();
+              setTimeout(() => {
+                const menuItems = Array.from(document.querySelectorAll("ytmusic-menu-service-item-renderer, tp-yt-paper-item"));
+                const removeOption = menuItems.find((el) => {
+                  const txt = (el.textContent || "").toLowerCase();
+                  return txt.includes("quitar de la cola") || txt.includes("remove from queue") || txt.includes("eliminar de la cola");
+                });
+                if (removeOption) {
+                  removeOption.click();
+                }
+              }, 150);
+            }
+          }
+        }
+        break;
+      }
+
+      case "SEARCH": {
+        const query = packet.payload?.query;
+        if (query) {
+          sessionStorage.setItem("pi_auto_play_top", "true");
+          window.location.href = `https://music.youtube.com/search?q=${encodeURIComponent(query)}`;
+        }
+        break;
+      }
+
+      case "PLAY_LIKES": {
+        sessionStorage.setItem("pi_auto_play_top", "true");
+        window.location.href = "https://music.youtube.com/playlist?list=LM";
+        break;
+      }
     }
 
     // Reaccionar inmediatamente tras el comando
@@ -283,7 +351,28 @@
     });
   }
 
-  // --- 3. Loop de Ticks cada 1 segundo para telemetría viva ---
+  // --- 3. Auto-play tras navegación de búsqueda o favoritos ---
+
+  if (sessionStorage.getItem("pi_auto_play_top") === "true") {
+    sessionStorage.removeItem("pi_auto_play_top");
+    let attempts = 0;
+    const autoPlayInterval = setInterval(() => {
+      attempts++;
+      // Buscar botón de play principal en el mejor resultado o en la cabecera de la lista
+      const playTarget = document.querySelector(
+        "ytmusic-responsive-list-item-renderer ytmusic-play-button-renderer, .play-button.ytmusic-responsive-list-item-renderer, #play-button, ytmusic-play-button-renderer[slot='play-button']"
+      );
+      if (playTarget) {
+        clearInterval(autoPlayInterval);
+        playTarget.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+        if (typeof playTarget.click === "function") playTarget.click();
+      } else if (attempts > 15) {
+        clearInterval(autoPlayInterval);
+      }
+    }, 400);
+  }
+
+  // --- 4. Loop de Ticks cada 1 segundo para telemetría viva ---
 
   sendFullState();
 
