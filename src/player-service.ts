@@ -19,6 +19,8 @@ const INITIAL_STATE: YouTubePlayerState = {
   currentTime: 0,
   duration: 0,
   volume: 1.0,
+  repeatMode: "NONE",
+  shuffle: false,
   isLiked: false,
   thumbnailUrl: "",
   queue: [],
@@ -157,11 +159,29 @@ export class YouTubePlayerService implements IYouTubePlayerService {
   public setVolume(volume: number): void {
     // Clamping 0 a 100
     const clamped = Math.max(0, Math.min(100, Math.round(volume)));
+    this.state.volume = clamped / 100;
+    this.emitter.emit("stateChange", this.getState());
     this.dispatchCommand("SET_VOLUME", { value: clamped });
   }
 
   public toggleMute(): void {
     this.dispatchCommand("MUTE");
+  }
+
+  public toggleRepeat(): void {
+    // Rotar optimistamente estado local: NONE -> ALL -> ONE -> NONE
+    const current = this.state.repeatMode || "NONE";
+    const nextMode = current === "NONE" ? "ALL" : current === "ALL" ? "ONE" : "NONE";
+    this.state.repeatMode = nextMode;
+    this.emitter.emit("stateChange", this.getState());
+    this.dispatchCommand("REPEAT");
+  }
+
+  public toggleShuffle(): void {
+    // Alternar optimistamente estado local
+    this.state.shuffle = !this.state.shuffle;
+    this.emitter.emit("stateChange", this.getState());
+    this.dispatchCommand("SHUFFLE");
   }
 
   public playQueueIndex(index: number): void {
