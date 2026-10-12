@@ -21,6 +21,16 @@
         "content-script.js"
       ],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://music.youtube.com/*"
+      ],
+      "js": [
+        "main-world.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
     }
   ]
 }

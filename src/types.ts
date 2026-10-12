@@ -16,6 +16,11 @@ export interface QueueTrack {
 }
 
 /**
+ * Modos de repetición soportados por YouTube Music
+ */
+export type RepeatMode = "NONE" | "ALL" | "ONE";
+
+/**
  * Estado completo del reproductor de YouTube Music
  */
 export interface YouTubePlayerState {
@@ -26,6 +31,8 @@ export interface YouTubePlayerState {
   currentTime: number; // Segundos actuales
   duration: number; // Duración total en segundos
   volume: number; // 0.0 a 1.0 (o 0 a 100 según porcentaje)
+  repeatMode?: RepeatMode;
+  shuffle?: boolean;
   isLiked?: boolean;
   thumbnailUrl?: string;
   thumbnailPath?: string; // Ruta local al archivo de portada en disco (/tmp) para renderizado en TUI/Kitty
@@ -51,7 +58,9 @@ export type PlayerCommandAction =
   | "CLEAR_QUEUE"
   | "REMOVE_INDEX"
   | "SEARCH"
-  | "PLAY_LIKES";
+  | "PLAY_LIKES"
+  | "REPEAT"
+  | "SHUFFLE";
 
 /**
  * Paquete de comando enviado de Pi hacia el navegador
@@ -104,6 +113,8 @@ export interface IYouTubePlayerService {
   previous(): void;
   setVolume(volume: number): void;
   toggleMute(): void;
+  toggleRepeat(): void;
+  toggleShuffle(): void;
   playQueueIndex(index: number): void;
   clearQueue(): void;
   removeQueueIndex(index: number): void;
