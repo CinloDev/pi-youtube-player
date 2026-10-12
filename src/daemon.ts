@@ -1,6 +1,10 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { WebSocket, WebSocketServer } from "ws";
 import { CoverArtManager } from "./cover-art.js";
 import type { PlayerCommandPacket, UpstreamPacket, YouTubePlayerState } from "./types.js";
+
+const execFileAsync = promisify(execFile);
 
 export const DEFAULT_PORT = 7788;
 export const DEFAULT_HOST = "127.0.0.1";
@@ -15,6 +19,7 @@ const INITIAL_STATE: YouTubePlayerState = {
   volume: 1.0,
   repeatMode: "NONE",
   shuffle: false,
+  isPip: false,
   isLiked: false,
   thumbnailUrl: "",
   queue: [],
@@ -30,6 +35,15 @@ export class YouTubeDaemon {
   private lastState: YouTubePlayerState = { ...INITIAL_STATE };
   private browserSocket: WebSocket | null = null;
   private coverArtManager = new CoverArtManager();
+  private hyprPipState: {
+    active: boolean;
+    originalWorkspaceId: number | null;
+    windowAddress: string | null;
+  } = {
+    active: false,
+    originalWorkspaceId: null,
+    windowAddress: null,
+  };
 
   constructor(port = DEFAULT_PORT, host = DEFAULT_HOST) {
     this.port = port;
@@ -146,6 +160,11 @@ export class YouTubeDaemon {
           if (this.browserSocket && this.browserSocket.readyState === WebSocket.OPEN && this.browserSocket !== socket) {
             this.browserSocket.send(JSON.stringify(packet));
           }
+          if (packet.action === "TOGGLE_PIP") {
+            this.handleHyprlandPipToggle().catch((err) => {
+              console.error("[pi-youtube-daemon] Error en Hyprland PiP:", err);
+            });
+          }
         } else if (packet.type === "HEARTBEAT") {
           // Keep-alive silencioso
         }
@@ -174,6 +193,85 @@ export class YouTubeDaemon {
         this.browserSocket = null;
       }
     });
+  }
+
+  private async runHyprJson<T>(subcmd: string): Promise<T | null> {
+    try {
+      const { stdout } = await execFileAsync("hyprctl", [subcmd, "-j"], { timeout: 2000 });
+      return JSON.parse(stdout) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  private async hyprDispatch(luaExpr: string): Promise<void> {
+    try {
+      await execFileAsync("hyprctl", ["dispatch", luaExpr], { timeout: 2000 });
+    } catch {
+      // Ignorar si la ventana aún no mapeó
+    }
+  }
+
+  private findPipWindow(clients: any[]): any | null {
+    if (!Array.isArray(clients)) return null;
+    // ÚNICAMENTE buscar la ventana nativa de Picture-in-Picture (jamás tocar la ventana del navegador o PWA)
+    return (
+      clients.find(
+        (c) =>
+          /Picture.?in.?Picture/i.test(c.title || "") ||
+          /Picture.?in.?Picture/i.test(c.initialTitle || "") ||
+          /Imagen en imagen/i.test(c.title || "") ||
+          /Imagen en imagen/i.test(c.initialTitle || "")
+      ) || null
+    );
+  }
+
+  private async handleHyprlandPipToggle(): Promise<void> {
+    const activeWin = await this.runHyprJson<any>("activewindow");
+    const monitors = await this.runHyprJson<any[]>("monitors");
+    const focusedMon =
+      (Array.isArray(monitors) && (monitors.find((m) => m.focused) || monitors[0])) || {
+        x: 0,
+        y: 0,
+        width: 1920,
+        height: 1080,
+        scale: 1,
+        activeWorkspace: { id: 1 },
+      };
+
+    const pipW = 384;
+    const pipH = 216;
+    const scale = focusedMon.scale || 1;
+    const monW = Math.round((focusedMon.width || 1920) / scale);
+    const targetX = (focusedMon.x || 0) + monW - pipW - 28;
+    const targetY = (focusedMon.y || 0) + 52;
+    const targetWsId = focusedMon.activeWorkspace?.id || 1;
+
+    // Si Chrome abre la ventana nativa Picture-in-Picture, asegurarnos de traerla al monitor activo donde está trabajando el usuario
+    for (const delay of [200, 450, 900, 1500]) {
+      await new Promise((r) => setTimeout(r, delay));
+      const clients = await this.runHyprJson<any[]>("clients");
+      if (!clients) continue;
+      const pipWin = this.findPipWindow(clients);
+      if (!pipWin) continue;
+
+      const wRef = `address:${pipWin.address}`;
+      if (pipWin.workspace?.id !== targetWsId) {
+        await this.hyprDispatch(`hl.dsp.window.move({ window = "${wRef}", workspace = "${targetWsId}", follow = false })`);
+      }
+      if (!pipWin.floating) {
+        await this.hyprDispatch(`hl.dsp.window.float({ window = "${wRef}", action = "set" })`);
+      }
+      await this.hyprDispatch(`hl.dsp.window.resize({ window = "${wRef}", x = ${pipW}, y = ${pipH} })`);
+      await this.hyprDispatch(`hl.dsp.window.move({ window = "${wRef}", x = ${targetX}, y = ${targetY} })`);
+      if (!pipWin.pinned) {
+        await this.hyprDispatch(`hl.dsp.window.pin({ window = "${wRef}" })`);
+      }
+      if (activeWin?.address && activeWin.address !== pipWin.address) {
+        await this.hyprDispatch(`hl.dsp.focus({ window = "address:${activeWin.address}" })`);
+      }
+      break;
+    }
   }
 
   public broadcast(packet: unknown, sender?: WebSocket): void {

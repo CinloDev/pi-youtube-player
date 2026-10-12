@@ -21,6 +21,7 @@ const INITIAL_STATE: YouTubePlayerState = {
   volume: 1.0,
   repeatMode: "NONE",
   shuffle: false,
+  isPip: false,
   isLiked: false,
   thumbnailUrl: "",
   queue: [],
@@ -40,10 +41,24 @@ export class YouTubePlayerService implements IYouTubePlayerService {
   }
 
   public static getInstance(): YouTubePlayerService {
+    const globalRef = globalThis as Record<symbol, any>;
+    const existing = globalRef[YOUTUBE_PLAYER_SYMBOL] as YouTubePlayerService | undefined;
+    if (existing) {
+      // Asegurar que métodos nuevos (ej. togglePip) existan aunque el singleton provenga de un reload previo
+      if (typeof existing.togglePip !== "function") {
+        existing.togglePip = function () {
+          this.state.isPip = !this.state.isPip;
+          this.emitter.emit("stateChange", this.getState());
+          this.dispatchCommand("TOGGLE_PIP");
+        };
+      }
+      YouTubePlayerService.instance = existing;
+      return existing;
+    }
     if (!YouTubePlayerService.instance) {
       YouTubePlayerService.instance = new YouTubePlayerService();
       // Publicar en globalThis para consumo transparente en temas y sidebar
-      (globalThis as Record<symbol, unknown>)[YOUTUBE_PLAYER_SYMBOL] = YouTubePlayerService.instance;
+      globalRef[YOUTUBE_PLAYER_SYMBOL] = YouTubePlayerService.instance;
     }
     return YouTubePlayerService.instance;
   }
@@ -182,6 +197,13 @@ export class YouTubePlayerService implements IYouTubePlayerService {
     this.state.shuffle = !this.state.shuffle;
     this.emitter.emit("stateChange", this.getState());
     this.dispatchCommand("SHUFFLE");
+  }
+
+  public togglePip(): void {
+    // Alternar optimistamente estado de ventana flotante (PiP)
+    this.state.isPip = !this.state.isPip;
+    this.emitter.emit("stateChange", this.getState());
+    this.dispatchCommand("TOGGLE_PIP");
   }
 
   public playQueueIndex(index: number): void {
