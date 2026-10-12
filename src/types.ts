@@ -33,6 +33,7 @@ export interface YouTubePlayerState {
   volume: number; // 0.0 a 1.0 (o 0 a 100 según porcentaje)
   repeatMode?: RepeatMode;
   shuffle?: boolean;
+  isPip?: boolean;
   isLiked?: boolean;
   thumbnailUrl?: string;
   thumbnailPath?: string; // Ruta local al archivo de portada en disco (/tmp) para renderizado en TUI/Kitty
@@ -60,7 +61,8 @@ export type PlayerCommandAction =
   | "SEARCH"
   | "PLAY_LIKES"
   | "REPEAT"
-  | "SHUFFLE";
+  | "SHUFFLE"
+  | "TOGGLE_PIP";
 
 /**
  * Paquete de comando enviado de Pi hacia el navegador
@@ -115,6 +117,7 @@ export interface IYouTubePlayerService {
   toggleMute(): void;
   toggleRepeat(): void;
   toggleShuffle(): void;
+  togglePip(): void;
   playQueueIndex(index: number): void;
   clearQueue(): void;
   removeQueueIndex(index: number): void;

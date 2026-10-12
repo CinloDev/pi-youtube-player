@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Puente local y seguro entre YouTube Music y el agente Pi",
   "permissions": [
-    "tabs"
+    "tabs",
+    "scripting",
+    "debugger"
   ],
   "host_permissions": [
     "https://music.youtube.com/*"

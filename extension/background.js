@@ -109,6 +109,122 @@ chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
   return true;
 });
 
+/**
+ * Abre o cierra la ventana nativa Picture-in-Picture de Chrome inyectando
+ * un userGesture real mediante chrome.debugger (Runtime.evaluate con userGesture: true).
+ * De esta manera Chrome abre únicamente el reproductor de video limpio sin bordes
+ * y sin tocar ni mover la ventana principal del navegador.
+ */
+async function toggleNativePipWithGesture(tabId) {
+  const target = { tabId };
+  try {
+    await chrome.debugger.attach(target, "1.3");
+  } catch (_) {
+    // Si ya estaba adjunto, continuar
+  }
+
+  try {
+    // Paso 1: Si ya está en PiP nativo, cerrarlo. Si está en modo Canción (videoWidth === 0), cambiar a pestaña Video y esperar frames.
+    const step1 = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
+      expression: `(async () => {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+          return { action: "exited", isPip: false };
+        }
+
+        let video = document.querySelector("video");
+        if (!video) return { action: "no-video", isPip: false };
+
+        if (video.videoWidth === 0) {
+          const candidates = Array.from(
+            document.querySelectorAll(
+              "ytmusic-av-toggle button, .av-toggle button, ytmusic-av-toggle tp-yt-paper-button, .video-button.ytmusic-av-toggle, [aria-label*='Video' i], [aria-label*='Vídeo' i]"
+            )
+          );
+          const videoBtn = candidates.find((el) => {
+            const t = (el.textContent || el.getAttribute("aria-label") || "").trim().toLowerCase();
+            return t === "video" || t === "vídeo" || t.includes("cambiar a video") || t.includes("switch to video");
+          });
+          if (videoBtn && typeof videoBtn.click === "function") {
+            videoBtn.click();
+          }
+
+          for (let i = 0; i < 35; i++) {
+            await new Promise((r) => setTimeout(r, 100));
+            video = document.querySelector("video");
+            if (video && video.videoWidth > 0 && video.readyState >= 1) {
+              break;
+            }
+          }
+        }
+
+        return { action: "ready", videoWidth: video ? video.videoWidth : 0 };
+      })()`,
+      userGesture: true,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+
+    const step1Val = step1?.result?.value;
+    if (step1Val?.action === "exited") {
+      sendToPi({
+        type: "PLAYER_STATE",
+        data: { isPip: false },
+        timestamp: Date.now(),
+      });
+      return;
+    }
+
+    // Paso 2: Disparar requestPictureInPicture() con un userGesture: true fresco y directo
+    const step2 = await chrome.debugger.sendCommand(target, "Runtime.evaluate", {
+      expression: `(async () => {
+        const video = document.querySelector("video");
+        if (!video || video.videoWidth === 0) {
+          return { isPip: false, reason: "no-video-stream" };
+        }
+        video.removeAttribute("disablepictureinpicture");
+        await video.requestPictureInPicture();
+        return { isPip: Boolean(document.pictureInPictureElement) };
+      })()`,
+      userGesture: true,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+
+    const isPipNow = Boolean(step2?.result?.value?.isPip);
+    sendToPi({
+      type: "PLAYER_STATE",
+      data: { isPip: isPipNow },
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    console.warn("[Pi-YT Background] Error al alternar Picture-in-Picture nativo:", err);
+  } finally {
+    try {
+      await chrome.debugger.detach(target);
+    } catch (_) {}
+    requestStateFromTabs();
+  }
+}
+
+function sendMessageWithAutoReinject(tabId, packet) {
+  chrome.tabs.sendMessage(tabId, packet).catch(() => {
+    if (chrome.scripting && chrome.scripting.executeScript) {
+      chrome.scripting
+        .executeScript({
+          target: { tabId },
+          files: ["content-script.js"],
+        })
+        .then(() => {
+          setTimeout(() => {
+            chrome.tabs.sendMessage(tabId, packet).catch(() => {});
+          }, 150);
+        })
+        .catch(() => {});
+    }
+  });
+}
+
 // Despachar comandos desde Pi hacia la pestaña de YouTube Music
 function handleIncomingCommand(packet) {
   if (!packet || packet.type !== "COMMAND") return;
@@ -116,11 +232,17 @@ function handleIncomingCommand(packet) {
   chrome.tabs.query({ url: "https://music.youtube.com/*" }, (tabs) => {
     if (!tabs || tabs.length === 0) return;
 
+    if (packet.action === "TOGGLE_PIP") {
+      const targetTab = tabs[0];
+      if (targetTab && targetTab.id !== undefined) {
+        toggleNativePipWithGesture(targetTab.id);
+      }
+      return;
+    }
+
     for (const tab of tabs) {
       if (tab.id !== undefined) {
-        chrome.tabs.sendMessage(tab.id, packet).catch(() => {
-          // Ignorar pestañas en proceso de carga
-        });
+        sendMessageWithAutoReinject(tab.id, packet);
       }
     }
   });
