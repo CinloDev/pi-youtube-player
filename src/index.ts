@@ -32,8 +32,10 @@ function formatStatusOneLiner(state: YouTubePlayerState): string {
   const icon = state.status === "playing" ? "▶" : "⏸";
   const time = `${formatTime(state.currentTime)}/${formatTime(state.duration)}`;
   const vol = Math.round(state.volume * 100);
+  const repIcon = state.repeatMode === "ONE" ? " [🔂]" : state.repeatMode === "ALL" ? " [🔁]" : "";
+  const shufIcon = state.shuffle ? " [🔀]" : "";
 
-  return `${icon} ${state.artist} - ${state.title} (${time}) [Vol: ${vol}%]`;
+  return `${icon} ${state.artist} - ${state.title} (${time}) [Vol: ${vol}%]${repIcon}${shufIcon}`;
 }
 
 /**
@@ -133,6 +135,21 @@ export default function activate(pi: any): void {
             return reply("♡ Cargando tus canciones que te gustan...");
           }
 
+          case "repeat":
+          case "loop": {
+            service.toggleRepeat();
+            const rep = service.getState().repeatMode;
+            const repLabel = rep === "ONE" ? "🔂 Repitiendo canción actual" : rep === "ALL" ? "🔁 Repitiendo toda la lista" : "➡️ Repetición desactivada";
+            return reply(repLabel);
+          }
+
+          case "shuffle":
+          case "random": {
+            service.toggleShuffle();
+            const shuf = service.getState().shuffle;
+            return reply(shuf ? "🔀 Modo aleatorio activado" : "➡️ Modo aleatorio desactivado");
+          }
+
           case "vol":
           case "volume": {
             const rawVal = parts[1];
@@ -174,7 +191,7 @@ export default function activate(pi: any): void {
               return reply(`▶ Saltando al tema #${targetIndex} de la cola...`);
             }
 
-            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | queue | clear | remove <#n> | search <query> | likes]");
+            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | repeat | shuffle | queue | clear | remove <#n> | search <query> | likes]");
           }
         }
       },

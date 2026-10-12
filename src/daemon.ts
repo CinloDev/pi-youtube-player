@@ -13,6 +13,8 @@ const INITIAL_STATE: YouTubePlayerState = {
   currentTime: 0,
   duration: 0,
   volume: 1.0,
+  repeatMode: "NONE",
+  shuffle: false,
   isLiked: false,
   thumbnailUrl: "",
   queue: [],

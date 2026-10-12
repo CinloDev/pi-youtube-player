@@ -31,6 +31,79 @@
     return document.querySelector("video");
   }
 
+  function extractRepeatMode() {
+    const playerBar = document.querySelector("ytmusic-player-bar");
+    const attrMode = playerBar?.getAttribute("repeat-mode") || playerBar?.getAttribute("repeat-mode_");
+    if (attrMode === "ONE" || attrMode === "ALL" || attrMode === "NONE") {
+      return attrMode;
+    }
+
+    const repeatBtn = document.querySelector(
+      ".repeat.ytmusic-player-bar, #right-controls .repeat, button[aria-label*='Repetir' i], button[aria-label*='Repeat' i]"
+    );
+    if (repeatBtn) {
+      const title = (repeatBtn.getAttribute("title") || repeatBtn.getAttribute("aria-label") || "").toLowerCase();
+      if (title.includes("uno") || title.includes("one") || title.includes("canción") || title.includes("track")) {
+        return "ONE";
+      }
+      if (title.includes("todo") || title.includes("all") || title.includes("lista") || title.includes("playlist")) {
+        return "ALL";
+      }
+      const pressed = repeatBtn.getAttribute("aria-pressed");
+      if (pressed === "true") return "ALL";
+    }
+
+    return "NONE";
+  }
+
+  function extractShuffleState() {
+    const playerBar = document.querySelector("ytmusic-player-bar");
+    if (playerBar && (playerBar.hasAttribute("shuffle-on") || playerBar.getAttribute("shuffle-on") !== null)) {
+      return true;
+    }
+
+    const shuffleBtn = document.querySelector(
+      ".shuffle.ytmusic-player-bar, #right-controls .shuffle, button[aria-label*='Aleatorio' i], button[aria-label*='Shuffle' i]"
+    );
+    if (shuffleBtn) {
+      const pressed = shuffleBtn.getAttribute("aria-pressed");
+      if (pressed === "true") return true;
+      if (shuffleBtn.classList.contains("active")) return true;
+    }
+
+    return false;
+  }
+
+  function sendToMainWorld(action, payload) {
+    try {
+      window.postMessage({ source: "PI_YT_CONTENT", action, payload }, "*");
+    } catch (_) {}
+  }
+
+  function applyVolume(volPercent) {
+    if (typeof volPercent !== "number" || isNaN(volPercent)) return;
+    const clamped = Math.max(0, Math.min(100, Math.round(volPercent)));
+    const volFraction = clamped / 100;
+
+    // 1. Elemento <video> nativo de HTML5
+    const video = getVideoElement();
+    if (video) {
+      video.volume = volFraction;
+    }
+
+    // 2. Manipular slider nativo en el DOM de YouTube Music (tp-yt-paper-slider)
+    const slider = document.querySelector("#volume-slider, ytmusic-player-bar #volume-slider");
+    if (slider) {
+      // @ts-ignore
+      slider.value = clamped;
+      slider.dispatchEvent(new Event("change", { bubbles: true }));
+      slider.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    // 3. Despachar a main-world.js para llamar a updateVolume() y movie_player.setVolume() sin restricciones de CSP
+    sendToMainWorld("SET_VOLUME", { value: clamped });
+  }
+
   function extractMetadata() {
     const video = getVideoElement();
     if (!video) {
@@ -68,13 +141,20 @@
       }
     }
 
+    // Extraer volumen sincronizado (priorizar slider si está presente)
+    const slider = document.querySelector("#volume-slider, ytmusic-player-bar #volume-slider");
+    // @ts-ignore
+    const currentVol = slider && typeof slider.value === "number" && !isNaN(slider.value) ? slider.value / 100 : (video.volume ?? 1.0);
+
     return {
       status: isPlaying ? "playing" : "paused",
       title,
       artist,
       currentTime,
       duration,
-      volume: video.volume ?? 1.0,
+      volume: currentVol,
+      repeatMode: extractRepeatMode(),
+      shuffle: extractShuffleState(),
       thumbnailUrl,
       queue: extractQueue(),
     };
@@ -256,12 +336,23 @@
         break;
 
       case "SET_VOLUME":
-        if (video && typeof packet.payload?.value === "number") {
-          const vol = Math.max(0, Math.min(1, packet.payload.value / 100));
-          video.volume = vol;
+        if (typeof packet.payload?.value === "number") {
+          applyVolume(packet.payload.value);
           sendFullState();
         }
         break;
+
+      case "REPEAT": {
+        sendToMainWorld("REPEAT");
+        setTimeout(sendFullState, 250);
+        break;
+      }
+
+      case "SHUFFLE": {
+        sendToMainWorld("SHUFFLE");
+        setTimeout(sendFullState, 250);
+        break;
+      }
 
       case "MUTE":
         if (video) {
