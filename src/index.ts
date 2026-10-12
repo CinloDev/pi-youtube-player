@@ -58,7 +58,7 @@ export default function activate(pi: any): void {
   // Registrar comando slash /yt con la API nativa de Pi
   if (pi?.registerCommand) {
     pi.registerCommand("yt", {
-      description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|status|queue|clear|remove|search|likes])",
+      description: "Controla YouTube Music (/yt [play|pause|next|prev|vol|repeat|shuffle|pip|status|queue|clear|remove|search|likes])",
       handler: async (args: string, ctx: any) => {
         const parts = (args || "").trim().split(/\s+/).filter(Boolean);
         const sub = (parts[0] || "").toLowerCase();
@@ -150,6 +150,18 @@ export default function activate(pi: any): void {
             return reply(shuf ? "🔀 Modo aleatorio activado" : "➡️ Modo aleatorio desactivado");
           }
 
+          case "pip":
+          case "video":
+          case "float": {
+            service.togglePip();
+            const pipActive = service.getState().isPip;
+            return reply(
+              pipActive
+                ? "📺 Abriendo ventana flotante de video (Picture-in-Picture)..."
+                : "📺 Cerrando ventana flotante de video..."
+            );
+          }
+
           case "vol":
           case "volume": {
             const rawVal = parts[1];
@@ -191,7 +203,7 @@ export default function activate(pi: any): void {
               return reply(`▶ Saltando al tema #${targetIndex} de la cola...`);
             }
 
-            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | repeat | shuffle | queue | clear | remove <#n> | search <query> | likes]");
+            return reply("Uso: /yt [play | pause | next | prev | vol <0-100> | repeat | shuffle | pip | queue | clear | remove <#n> | search <query> | likes]");
           }
         }
       },

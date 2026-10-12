@@ -74,6 +74,28 @@
     return false;
   }
 
+  function isPipActive() {
+    return Boolean(document.pictureInPictureElement);
+  }
+
+  async function togglePipMode() {
+    if (document.pictureInPictureElement) {
+      try {
+        await document.exitPictureInPicture();
+      } catch (_) {}
+      sendFullState();
+      return;
+    }
+
+    const video = getVideoElement();
+    if (video && typeof video.requestPictureInPicture === "function" && video.videoWidth > 0) {
+      try {
+        await video.requestPictureInPicture();
+      } catch (_) {}
+      sendFullState();
+    }
+  }
+
   function sendToMainWorld(action, payload) {
     try {
       window.postMessage({ source: "PI_YT_CONTENT", action, payload }, "*");
@@ -155,6 +177,7 @@
       volume: currentVol,
       repeatMode: extractRepeatMode(),
       shuffle: extractShuffleState(),
+      isPip: isPipActive(),
       thumbnailUrl,
       queue: extractQueue(),
     };
@@ -354,6 +377,11 @@
         break;
       }
 
+      case "TOGGLE_PIP": {
+        togglePipMode();
+        break;
+      }
+
       case "MUTE":
         if (video) {
           video.muted = !video.muted;
@@ -488,4 +516,7 @@
     },
     true
   );
+
+  document.addEventListener("enterpictureinpicture", () => sendFullState(), true);
+  document.addEventListener("leavepictureinpicture", () => sendFullState(), true);
 })();
