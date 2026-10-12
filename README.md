@@ -3,7 +3,7 @@
 > Extensión modular ultra-liviana para el arnés de agentes **Pi** (`@earendil-works/pi-coding-agent`) que permite controlar tu sesión nativa de **YouTube Music** (con tu cuenta **Premium**, cero anuncios y máxima fidelidad de audio) directamente desde la terminal y la sidebar interactiva, sin consumir memoria extra y con total aislamiento de medios.
 
 <p align="center">
-  <img src="./public/player-preview.png" alt="pi-youtube-player en la sidebar de Pi (CUTE theme)" width="380" />
+  <img src="./public/music.png" alt="pi-youtube-player en la sidebar de Pi con ventana flotante Picture-in-Picture (CUTE theme)" width="380" />
 </p>
 
 ---
@@ -21,6 +21,7 @@
 
 - **🎮 Controles Completos:** Play, Pausa, Siguiente tema, Tema anterior y control fino de Volumen con botones táctiles y anchos (`[ - ]` y `[ + ]`), sincronizados con la barra nativa y el store de YouTube Music.
 - **🔁 Modos de Repetición y Aleatorio:** Botones interactivos en la sidebar con soporte para Bucle cíclico (`[ 🔁 ]` para lista completa, `[ 🔂 ]` para un solo tema) y Aleatorio / Shuffle (`[ 🔀 ]`), conmutables con un clic de mouse o vía comandos de terminal.
+- **📺 Ventana Flotante de Video (Picture-in-Picture Nativo):** Botón interactivo `[ 📺 ]` y comando `/yt pip` que abren o cierran al instante la ventana flotante nativa de video en vivo (cambiando automáticamente de modo *Canción* a *Video* cuando el videoclip está disponible).
 - **⏱️ Telemetría en Tiempo Real:** Barra de progreso dinámica que avanza segundo a segundo con el tiempo real de la pista actual.
 - **📜 Cola Dinámica (Up Next) Clickeable:** Ventana deslizante que detecta cuál es la canción que está sonando y lista los próximos 15 temas. Hacé clic con el mouse en cualquier canción de la lista para que empiece a sonar inmediatamente.
 - **🔍 Búsqueda y Favoritos Directos:** Buscá y reproducí temas o artistas (`/yt search <query>`) y cargá tu playlist de canciones que te gustan (`/yt likes`) al instante.
@@ -112,6 +113,7 @@ export default activate;
 | `/yt prev` o `/yt back` | Vuelve a la canción anterior |
 | `/yt repeat` o `/yt loop` | Cicla modo bucle: desactivado ➡️ toda la lista (`🔁`) ➡️ canción actual (`🔂`) |
 | `/yt shuffle` o `/yt random` | Alterna modo aleatorio (`🔀`) |
+| `/yt pip` o `/yt video` | Abre o cierra la ventana flotante nativa de video (Picture-in-Picture) |
 | `/yt vol <0-100>` | Ajusta el volumen al porcentaje exacto |
 | `/yt vol +10` / `/yt vol -10` | Sube o baja el volumen en saltos de 10% |
 | `/yt mute` | Alterna el mute de audio |
