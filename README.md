@@ -19,10 +19,13 @@
 
 ## ✨ Características Principales
 
-- **🎮 Controles Completos:** Play, Pausa, Siguiente tema, Tema anterior y control fino de Volumen (`/yt vol <0-100>`, `+10`, `-10`).
+- **🎮 Controles Completos:** Play, Pausa, Siguiente tema, Tema anterior y control fino de Volumen con botones táctiles y anchos (`[ - ]` y `[ + ]`), sincronizados con la barra nativa y el store de YouTube Music.
+- **🔁 Modos de Repetición y Aleatorio:** Botones interactivos en la sidebar con soporte para Bucle cíclico (`[ 🔁 ]` para lista completa, `[ 🔂 ]` para un solo tema) y Aleatorio / Shuffle (`[ 🔀 ]`), conmutables con un clic de mouse o vía comandos de terminal.
 - **⏱️ Telemetría en Tiempo Real:** Barra de progreso dinámica que avanza segundo a segundo con el tiempo real de la pista actual.
 - **📜 Cola Dinámica (Up Next) Clickeable:** Ventana deslizante que detecta cuál es la canción que está sonando y lista los próximos 15 temas. Hacé clic con el mouse en cualquier canción de la lista para que empiece a sonar inmediatamente.
-- **🛡️ Arquitectura Segura Manifest V3:** El WebSocket corre dentro de un Service Worker de fondo (`background.js`) para evitar bloqueos de *Mixed Content* en páginas HTTPS.
+- **🔍 Búsqueda y Favoritos Directos:** Buscá y reproducí temas o artistas (`/yt search <query>`) y cargá tu playlist de canciones que te gustan (`/yt likes`) al instante.
+- **🧹 Gestión de Cola:** Vaciá la lista completa (`/yt clear`) o eliminá canciones específicas (`/yt remove <#n>`).
+- **🛡️ Arquitectura Segura Manifest V3 y Bypass de CSP:** El Service Worker (`background.js`) maneja el WebSocket local, mientras que un script dedicado en el `MAIN` world (`main-world.js`) interactúa de forma nativa con los controladores y stores internos de YouTube Music sin ser bloqueado por la Content Security Policy de Google.
 - **🔄 Daemon Centralizado Multi-Terminal:** Un servicio de fondo desacoplado (`daemon.js` / systemd) administra la conexión exclusiva con Chrome y retransmite a múltiples terminales de Pi en simultáneo sin conflictos de puertos.
 - **⚡ Reconexión Silenciosa:** Si cerrás o recargás Pi o el navegador, la conexión se restablece sola en milisegundos sin tirar errores.
 
@@ -31,28 +34,37 @@
 ## 🏗️ Arquitectura General
 
 ```
-┌────────────────────────────────────────┐
-│      Google Chrome (Manifest V3)       │
-│  Pestaña: music.youtube.com (Premium)  │
-│  └─ Content Script (Lectura del DOM)   │
-│         │ chrome.runtime               │
-│  └─ Background Service Worker          │
-└───────────────────▲────────────────────┘
-                    │ WebSocket Local
-                    │ ws://127.0.0.1:7788
-┌───────────────────▼────────────────────┐
-│      pi-youtube-daemon (Systemd)       │
-│  - Servidor WebSocket centralizado     │
-│  - Retención de estado reactivo        │
-│  - Broadcast entre Chrome y Pi         │
-└─────────▲────────────────────▲─────────┘
-          │ ws://127.0.0.1:7788│ ws://127.0.0.1:7788
-┌─────────▼──────────────┐   ┌─▼──────────────────────┐
-│  Pi Terminal 1 (pid A) │   │  Pi Terminal 2 (pid B) │
-│  - Cliente WS ligero   │   │  - Cliente WS ligero   │
-│  - Comandos Slash /yt  │   │  - Comandos Slash /yt  │
-│  - Sidebar TUI [ 6:YT ]│   │  - Sidebar TUI [ 6:YT ]│
-└────────────────────────┘   └────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│              Google Chrome (Manifest V3)               │
+│         Pestaña: music.youtube.com (Premium)           │
+│                                                        │
+│  ┌─ MAIN World (main-world.js) ─────────────────────┐  │
+│  │  ytmusic-player-bar & movie_player API direct     │  │
+│  └───────────────────▲──────────────────────────────┘  │
+│                      │ window.postMessage              │
+│  ┌─ ISOLATED World (content-script.js) ─────────────┐  │
+│  │  Lectura DOM, telemetría y forward de comandos   │  │
+│  └───────────────────▲──────────────────────────────┘  │
+│                      │ chrome.runtime                  │
+│  ┌─ Background Service Worker (background.js) ──────┐  │
+│  │  Mantiene socket sin bloqueo de Mixed Content    │  │
+│  └───────────────────▲──────────────────────────────┘  │
+└──────────────────────┼─────────────────────────────────┘
+                       │ WebSocket Local
+                       │ ws://127.0.0.1:7788
+┌──────────────────────▼─────────────────────────────────┐
+│              pi-youtube-daemon (Systemd)               │
+│  - Servidor WebSocket centralizado                     │
+│  - Descarga y caché de carátulas en /tmp               │
+│  - Retención de estado reactivo y broadcast            │
+└──────────▲─────────────────────────────────▲───────────┘
+           │ ws://127.0.0.1:7788             │ ws://127.0.0.1:7788
+┌──────────▼───────────────┐     ┌───────────▼───────────────┐
+│   Pi Terminal 1 (pid A)  │     │   Pi Terminal 2 (pid B)   │
+│   - Cliente WS ligero    │     │   - Cliente WS ligero     │
+│   - Comandos Slash /yt   │     │   - Comandos Slash /yt    │
+│   - Sidebar TUI [ 6:YT ] │     │   - Sidebar TUI [ 6:YT ]  │
+└──────────────────────────┘     └───────────────────────────┘
 ```
 
 ---
@@ -96,14 +108,20 @@ export default activate;
 | Comando | Acción |
 |---|---|
 | `/yt` o `/yt play` | Alterna entre reproducir y pausar |
-| `/yt next` | Salta a la siguiente canción |
-| `/yt prev` | Vuelve a la canción anterior |
+| `/yt next` o `/yt skip` | Salta a la siguiente canción |
+| `/yt prev` o `/yt back` | Vuelve a la canción anterior |
+| `/yt repeat` o `/yt loop` | Cicla modo bucle: desactivado ➡️ toda la lista (`🔁`) ➡️ canción actual (`🔂`) |
+| `/yt shuffle` o `/yt random` | Alterna modo aleatorio (`🔀`) |
 | `/yt vol <0-100>` | Ajusta el volumen al porcentaje exacto |
-| `/yt vol +10` / `/yt vol -10` | Sube o baja el volumen de a 10% |
+| `/yt vol +10` / `/yt vol -10` | Sube o baja el volumen en saltos de 10% |
 | `/yt mute` | Alterna el mute de audio |
-| `/yt status` | Muestra un resumen de una sola línea de lo que está sonando |
+| `/yt search <query>` | Busca y reproduce inmediatamente un tema o artista |
+| `/yt likes` | Carga y reproduce tu lista de "Canciones que te gustan" |
 | `/yt queue` | Lista los próximos 15 temas en espera |
 | `/yt <número>` | Salta directo a reproducir ese número de la cola |
+| `/yt remove <#n>` | Quita la canción indicada de la cola de reproducción |
+| `/yt clear` | Vacía la cola de reproducción |
+| `/yt status` | Muestra un resumen de una sola línea de lo que está sonando |
 
 ---
 
