@@ -3,7 +3,7 @@
 > Extensión modular ultra-liviana para el arnés de agentes **Pi** (`@earendil-works/pi-coding-agent`) que permite controlar tu sesión nativa de **YouTube Music** (con tu cuenta **Premium**, cero anuncios y máxima fidelidad de audio) directamente desde la terminal y la sidebar interactiva, sin consumir memoria extra y con total aislamiento de medios.
 
 <p align="center">
-  <img src="./public/music.png" alt="pi-youtube-player en la sidebar de Pi (CUTE theme)" width="380" />
+  <img src="./public/player-preview.png" alt="pi-youtube-player en la sidebar de Pi (CUTE theme)" width="380" />
 </p>
 
 ---
