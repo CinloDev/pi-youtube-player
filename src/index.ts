@@ -77,10 +77,18 @@ export default function activate(pi: any): void {
 
         switch (sub) {
           case "":
-          case "play":
-          case "pause":
           case "toggle": {
             service.togglePlay();
+            return reply(formatStatusOneLiner(service.getState()));
+          }
+
+          case "play": {
+            service.play();
+            return reply(formatStatusOneLiner(service.getState()));
+          }
+
+          case "pause": {
+            service.pause();
             return reply(formatStatusOneLiner(service.getState()));
           }
 

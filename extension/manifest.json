@@ -1,15 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "Pi YouTube Music Bridge",
-  "version": "1.0.0",
-  "description": "Puente local y seguro entre YouTube Music y el agente Pi",
+  "name": "Pi YouTube Bridge",
+  "version": "1.1.0",
+  "description": "Puente local y seguro entre YouTube / YouTube Music y el agente Pi",
   "permissions": [
     "tabs",
     "scripting",
     "debugger"
   ],
   "host_permissions": [
-    "https://music.youtube.com/*"
+    "https://music.youtube.com/*",
+    "https://www.youtube.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -17,7 +18,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://music.youtube.com/*"
+        "https://music.youtube.com/*",
+        "https://www.youtube.com/*"
       ],
       "js": [
         "content-script.js"
@@ -26,7 +28,8 @@
     },
     {
       "matches": [
-        "https://music.youtube.com/*"
+        "https://music.youtube.com/*",
+        "https://www.youtube.com/*"
       ],
       "js": [
         "main-world.js"

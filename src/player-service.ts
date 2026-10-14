@@ -13,8 +13,9 @@ import {
  */
 const INITIAL_STATE: YouTubePlayerState = {
   status: "disconnected",
+  platform: "youtube",
   title: "Sin reproducción",
-  artist: "YouTube Music",
+  artist: "YouTube",
   album: "",
   currentTime: 0,
   duration: 0,
