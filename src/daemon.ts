@@ -11,8 +11,9 @@ export const DEFAULT_HOST = "127.0.0.1";
 
 const INITIAL_STATE: YouTubePlayerState = {
   status: "disconnected",
+  platform: "youtube",
   title: "Sin reproducción",
-  artist: "YouTube Music",
+  artist: "YouTube",
   album: "",
   currentTime: 0,
   duration: 0,
@@ -104,9 +105,13 @@ export class YouTubeDaemon {
 
         // Caso 1: Mensaje proveniente de Chrome o de Pi
         if (packet.type === "CLIENT_CONNECTED") {
-          // Si es Chrome, marcar como browserSocket
-          this.browserSocket = socket;
-          console.log(`[pi-youtube-daemon] Cliente conectado: ${packet.client || "Desconocido"}`);
+          const clientStr = String(packet.client || "");
+          if (clientStr.toLowerCase().includes("chrome") || clientStr.toLowerCase().includes("extension")) {
+            this.browserSocket = socket;
+            console.log(`[pi-youtube-daemon] Navegador Chrome conectado: ${clientStr}`);
+          } else {
+            console.log(`[pi-youtube-daemon] Terminal cliente conectada: ${clientStr || "Desconocido"}`);
+          }
           if (this.lastState.status === "disconnected") {
             this.lastState.status = "idle";
           }
@@ -156,10 +161,6 @@ export class YouTubeDaemon {
           console.log(`[pi-youtube-daemon] Comando recibido: ${packet.action}`);
           // Reenviar a Chrome y a los demás clientes
           this.broadcast(packet, socket);
-          // Si tenemos referencia directa a Chrome, asegurar envío
-          if (this.browserSocket && this.browserSocket.readyState === WebSocket.OPEN && this.browserSocket !== socket) {
-            this.browserSocket.send(JSON.stringify(packet));
-          }
           if (packet.action === "TOGGLE_PIP") {
             this.handleHyprlandPipToggle().catch((err) => {
               console.error("[pi-youtube-daemon] Error en Hyprland PiP:", err);
