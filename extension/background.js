@@ -28,11 +28,11 @@ function connectWebSocket() {
       console.log("[Pi-YT Background] Conectado exitosamente con Pi en", WS_URL);
       sendToPi({
         type: "CLIENT_CONNECTED",
-        client: "Chrome Extension Background (YouTube Music)",
+        client: "Chrome Extension Background (YouTube & Music Universal)",
         timestamp: Date.now(),
       });
 
-      // Pedir a las pestañas de YouTube Music que envíen su estado de inmediato
+      // Pedir a las pestañas de YouTube / YouTube Music que envíen su estado de inmediato
       requestStateFromTabs();
     };
 
@@ -85,7 +85,7 @@ connectWebSocket();
 setupKeepAlive();
 
 function requestStateFromTabs() {
-  chrome.tabs.query({ url: "https://music.youtube.com/*" }, (tabs) => {
+  chrome.tabs.query({ url: ["https://music.youtube.com/*", "https://www.youtube.com/*"] }, (tabs) => {
     if (!tabs || tabs.length === 0) return;
     for (const tab of tabs) {
       if (tab.id !== undefined) {
@@ -225,25 +225,38 @@ function sendMessageWithAutoReinject(tabId, packet) {
   });
 }
 
-// Despachar comandos desde Pi hacia la pestaña de YouTube Music
+// Despachar comandos desde Pi hacia la pestaña de YouTube / YouTube Music
 function handleIncomingCommand(packet) {
   if (!packet || packet.type !== "COMMAND") return;
 
-  chrome.tabs.query({ url: "https://music.youtube.com/*" }, (tabs) => {
-    if (!tabs || tabs.length === 0) return;
+  chrome.tabs.query({ url: ["https://music.youtube.com/*", "https://www.youtube.com/*"] }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      console.warn("[Pi-YT Background] No se encontraron pestañas de YouTube abiertas para despachar comando:", packet.action);
+      return;
+    }
+
+    // Priorizar pestañas: primero la que esté sonando activamente (audible), sino la activa en ventana, sino la primera
+    const targetTabs = [...tabs].sort((a, b) => {
+      if (a.audible && !b.audible) return -1;
+      if (!a.audible && b.audible) return 1;
+      if (a.active && !b.active) return -1;
+      if (!a.active && b.active) return 1;
+      return 0;
+    });
 
     if (packet.action === "TOGGLE_PIP") {
-      const targetTab = tabs[0];
+      const targetTab = targetTabs[0];
       if (targetTab && targetTab.id !== undefined) {
         toggleNativePipWithGesture(targetTab.id);
       }
       return;
     }
 
-    for (const tab of tabs) {
-      if (tab.id !== undefined) {
-        sendMessageWithAutoReinject(tab.id, packet);
-      }
+    // Para comandos de reproducción, enviar a la pestaña prioritaria si hay varias abiertas
+    const bestTab = targetTabs[0];
+    if (bestTab && bestTab.id !== undefined) {
+      console.log("[Pi-YT Background] Enviando comando a pestaña:", packet.action, bestTab.url);
+      sendMessageWithAutoReinject(bestTab.id, packet);
     }
   });
 }

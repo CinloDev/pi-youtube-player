@@ -20,11 +20,14 @@ export interface QueueTrack {
  */
 export type RepeatMode = "NONE" | "ALL" | "ONE";
 
+export type PlatformSource = "youtube" | "music";
+
 /**
- * Estado completo del reproductor de YouTube Music
+ * Estado completo del reproductor de YouTube / YouTube Music
  */
 export interface YouTubePlayerState {
   status: PlayerPlaybackStatus;
+  platform?: PlatformSource;
   title: string;
   artist: string;
   album?: string;

@@ -1,32 +1,34 @@
 # pi-youtube-player 🎵
 
-> Extensión modular ultra-liviana para el arnés de agentes **Pi** (`@earendil-works/pi-coding-agent`) que permite controlar tu sesión nativa de **YouTube Music** (con tu cuenta **Premium**, cero anuncios y máxima fidelidad de audio) directamente desde la terminal y la sidebar interactiva, sin consumir memoria extra y con total aislamiento de medios.
+> Extensión modular ultra-liviana para el arnés de agentes **Pi** (`@earendil-works/pi-coding-agent`) que permite controlar tu sesión nativa de **YouTube Music** y **YouTube tradicional** (con tu cuenta **Premium**, cero anuncios y máxima fidelidad de audio/video) directamente desde la terminal y la sidebar interactiva, sin consumir memoria extra y con total aislamiento de medios.
 
 <p align="center">
-  <img src="./public/music.png" alt="pi-youtube-player en la sidebar de Pi con ventana flotante Picture-in-Picture (CUTE theme)" width="380" />
+  <img src="./public/music.png" alt="pi-youtube-player con YouTube Music en la sidebar de Pi con ventana flotante Picture-in-Picture" width="48%" />
+  <img src="./public/youtube.png" alt="pi-youtube-player con YouTube Standard en la sidebar de Pi" width="48%" />
 </p>
 
 ---
 
 ## 🎯 Visión y Filosofía
 
-1. **YouTube Music Premium Nativo:** No utiliza librerías de scraping ni APIs externas no oficiales. Se enlaza de forma segura con la pestaña que ya tenés abierta en tu navegador con tu sesión iniciada.
+1. **Soporte Universal YouTube & YouTube Music:** No utiliza librerías de scraping ni APIs externas no oficiales. Se enlaza de forma segura y transparente con la pestaña que tengas abierta en tu navegador (`music.youtube.com` o `www.youtube.com`), adaptándose dinámicamente según la plataforma.
 2. **Cero Consumo Adicional de Recursos:** No levanta navegadores headless ni instancias de Electron extra. La extensión se comunica mediante un WebSocket local minúsculo (<1 MB RAM, 0% CPU).
-3. **Aislamiento Estricto de Medios:** A diferencia del protocolo genérico D-Bus/MPRIS de Linux (que mezcla Spotify, Netflix, Discord o llamadas), este reproductor se conecta **única y exclusivamente** con tu pestaña de YouTube Music.
+3. **Aislamiento Estricto de Medios:** A diferencia del protocolo genérico D-Bus/MPRIS de Linux (que mezcla Spotify, Netflix, Discord o llamadas), este reproductor se conecta **única y exclusivamente** con tu pestaña activa de YouTube.
 4. **Desacoplado y Extensible:** La lógica vive en esta extensión independiente. Expone su estado y API a través de un `Symbol` global canónico (`Symbol.for('pi-youtube-player')`), lo que permite que cualquier tema (como `pi-cinlodev-cute`) o componente TUI dibuje controles interactivos y gestione clics del mouse sin acoplamiento.
 
 ---
 
 ## ✨ Características Principales
 
-- **🎮 Controles Completos:** Play, Pausa, Siguiente tema, Tema anterior y control fino de Volumen con botones táctiles y anchos (`[ - ]` y `[ + ]`), sincronizados con la barra nativa y el store de YouTube Music.
+- **🌐 Soporte Dual Transparente:** Cambiá entre escuchar música en YouTube Music y ver un podcast o tutorial en YouTube tradicional; el reproductor detecta la pestaña activa automáticamente y mapea sus controles.
+- **🎮 Controles Completos:** Play, Pausa, Siguiente tema/video, Anterior y control fino de Volumen con botones táctiles y anchos (`[ - ]` y `[ + ]`), sincronizados con la barra nativa y el reproductor de YouTube.
 - **🔁 Modos de Repetición y Aleatorio:** Botones interactivos en la sidebar con soporte para Bucle cíclico (`[ 🔁 ]` para lista completa, `[ 🔂 ]` para un solo tema) y Aleatorio / Shuffle (`[ 🔀 ]`), conmutables con un clic de mouse o vía comandos de terminal.
-- **📺 Ventana Flotante de Video (Picture-in-Picture Nativo):** Botón interactivo `[ 📺 ]` y comando `/yt pip` que abren o cierran al instante la ventana flotante nativa de video en vivo (cambiando automáticamente de modo *Canción* a *Video* cuando el videoclip está disponible).
+- **📺 Ventana Flotante de Video (Picture-in-Picture Nativo):** Botón interactivo `[ 📺 ]` y comando `/yt pip` que abren o cierran al instante la ventana flotante nativa de video en vivo (con cambio inteligente de canción a video en Music y PiP directo en YouTube tradicional).
 - **⏱️ Telemetría en Tiempo Real:** Barra de progreso dinámica que avanza segundo a segundo con el tiempo real de la pista actual.
-- **📜 Cola Dinámica (Up Next) Clickeable:** Ventana deslizante que detecta cuál es la canción que está sonando y lista los próximos 15 temas. Hacé clic con el mouse en cualquier canción de la lista para que empiece a sonar inmediatamente.
-- **🔍 Búsqueda y Favoritos Directos:** Buscá y reproducí temas o artistas (`/yt search <query>`) y cargá tu playlist de canciones que te gustan (`/yt likes`) al instante.
-- **🧹 Gestión de Cola:** Vaciá la lista completa (`/yt clear`) o eliminá canciones específicas (`/yt remove <#n>`).
-- **🛡️ Arquitectura Segura Manifest V3 y Bypass de CSP:** El Service Worker (`background.js`) maneja el WebSocket local, mientras que un script dedicado en el `MAIN` world (`main-world.js`) interactúa de forma nativa con los controladores y stores internos de YouTube Music sin ser bloqueado por la Content Security Policy de Google.
+- **📜 Cola Dinámica (Up Next / Playlist) Clickeable:** Ventana deslizante que detecta la canción o video que está sonando y lista los próximos 15 elementos (de la cola de Music, de una Playlist o de los recomendados de YouTube). Hacé clic con el mouse en cualquier elemento para reproducirlo al instante.
+- **🔍 Búsqueda y Favoritos Directos:** Buscá y reproducí temas, videos o canales (`/yt search <query>`) y cargá tu playlist de canciones que te gustan (`/yt likes`) al instante.
+- **🧹 Gestión de Cola:** Vaciá la lista (`/yt clear`) o eliminá canciones específicas (`/yt remove <#n>`).
+- **🛡️ Arquitectura Segura Manifest V3 y Bypass de CSP:** El Service Worker (`background.js`) maneja el WebSocket local, mientras que un script dedicado en el `MAIN` world (`main-world.js`) interactúa de forma nativa con los controladores y stores internos sin ser bloqueado por la Content Security Policy de Google.
 - **🔄 Daemon Centralizado Multi-Terminal:** Un servicio de fondo desacoplado (`daemon.js` / systemd) administra la conexión exclusiva con Chrome y retransmite a múltiples terminales de Pi en simultáneo sin conflictos de puertos.
 - **⚡ Reconexión Silenciosa:** Si cerrás o recargás Pi o el navegador, la conexión se restablece sola en milisegundos sin tirar errores.
 
@@ -37,14 +39,14 @@
 ```
 ┌────────────────────────────────────────────────────────┐
 │              Google Chrome (Manifest V3)               │
-│         Pestaña: music.youtube.com (Premium)           │
+│     music.youtube.com (Music) / youtube.com (Video)    │
 │                                                        │
 │  ┌─ MAIN World (main-world.js) ─────────────────────┐  │
 │  │  ytmusic-player-bar & movie_player API direct     │  │
 │  └───────────────────▲──────────────────────────────┘  │
 │                      │ window.postMessage              │
 │  ┌─ ISOLATED World (content-script.js) ─────────────┐  │
-│  │  Lectura DOM, telemetría y forward de comandos   │  │
+│  │  MusicAdapter / StandardAdapter (Detección DOM)  │  │
 │  └───────────────────▲──────────────────────────────┘  │
 │                      │ chrome.runtime                  │
 │  ┌─ Background Service Worker (background.js) ──────┐  │
@@ -80,7 +82,7 @@
    ```bash
    path/to/pi-youtube-player/extension
    ```
-5. Abrí `https://music.youtube.com/`, poné play a cualquier canción o playlist y abrí el panel "A continuación".
+5. Abrí `https://music.youtube.com/` o `https://www.youtube.com/`, poné play a cualquier canción o video y el reproductor se sincronizará automáticamente.
 
 ### 2. Iniciar el Daemon de Fondo (Systemd Service)
 Para que todas las terminales de Pi compartan la música en simultáneo sin bloquear puertos:
